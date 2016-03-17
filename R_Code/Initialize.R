@@ -26,6 +26,7 @@ library(pROC)
 library(glmnet) 
 library(caret)
 library(gtools)
+library(stringr)
 
 ########################################################################################################################################
 ########################################################################################################################################
@@ -48,97 +49,123 @@ DateConv <- function(Cont){
   
   #############################################################################################
   
-  Cont <- as.character(Cont)
-  Cont <- gsub(" ", "", Cont)
-  Cont <- gsub("/", "-", Cont)
+  Cont <- as.character(toupper(Cont))
+  
+  numCont <- floor(as.numeric(Cont))
+  numCont[is.na(numCont)] <- Cont[is.na(numCont)]
+  
+  Cont <- numCont
+  
+  Cont <- gsub(" ", "",   Cont)
+  Cont <- gsub("/", "-",  Cont)
   Cont <- gsub("\\", "-", Cont, fixed = TRUE)
-  Cont <- gsub(".", "-", Cont, fixed = TRUE)
+  Cont <- gsub(".", "-",  Cont, fixed = TRUE)
   
   #############################################################################################
   
-  countr <- length(Cont)
+  ContDf <- strsplit(Cont, "-")
   
-  ContDf <- data.frame(Content = character(countr), 
-                       Six_Char = character(countr), 
-                       Leftyear = character(countr), 
-                       RightYear = character(countr), 
-                       YearFromNum = character(countr),
-                       Out = as.Date(countr, origin = "1899-12-30"),
-                       stringsAsFactors=FALSE)
-  ContDf$Content <- Cont 
-  ContDf$Content[ContDf$Content == ""] <- NA
-  ContDf$Out[is.na(ContDf$Content)] <- NA
+  n <- max(sapply(ContDf, length))
+  l <- lapply(ContDf, function(X) c(X, rep(NA, n - length(X))))
+  
+  ContDf <- data.frame(t(do.call(cbind, l)), stringsAsFactors = FALSE)
+  colnames(ContDf) <- paste("Date", seq(1:ncol(ContDf)), sep = "")
+
+  ContDf$Date1[is.na(ContDf$Date1)] <- as.Date(0, origin = "1899-12-30")
+  
+  Months <- c("JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC")
+  
+  for (i in 1:ncol(ContDf)) {
+    OnNames <- which(ContDf[, i] %in% Months)
+    ContDf[, i][OnNames] <- which(Months %in% ContDf[, i][OnNames])
+  }
+
+  ContDf$OUT <- rep(as.Date(0, origin = "1899-12-30"), length(Cont))
+
+  #############################################################################################
+  # Year is left -> yyyy-dd-mm or yyyy-mm-dd
+  
+  yyPrt                    <- as.numeric(ContDf$Date1)
+  yyPrt[nchar(yyPrt) != 4] <- ""
+  
+  if (sum(yyPrt != "") > 0){
+    mmPrt              <- as.numeric(ContDf$Date2)
+    mmPrt[yyPrt == ""] <- NA
+    ddPrt              <- as.numeric(substr(ContDf$Date3, 1, 2))
+    ddPrt[yyPrt == ""] <- NA
+    
+    yyPrt[ddPrt == 0 | mmPrt == 0] <- 1899
+    mmPrt[ddPrt == 0 | mmPrt == 0] <- 12
+    ddPrt[ddPrt == 0 | mmPrt == 0] <- 30
+    
+    YrDat                <- paste(yyPrt, mmPrt, ddPrt, sep = "-")
+    YrDat                <- gsub("NA", "", YrDat)
+    YrDat[YrDat == "--"] <- NA
+    
+    mmPrt_ch                   <- ifelse(mmPrt > 12, 1, 0)
+    mmPrt_ch[is.na(mmPrt_ch)]  <- FALSE
+    
+    YrDat[mmPrt_ch == 1] <- paste(yyPrt, ddPrt, mmPrt, sep = "-")[mmPrt_ch == 1]
+    
+    ContDf$OUT[!(is.na(YrDat))] <- as.Date(YrDat[!(is.na(YrDat))])
+  }
   
   #############################################################################################
+  # Year is right -> dd-mm-yyyy or mm-dd-yyyy
   
-  ContDf$Six_Char[nchar(ContDf$Content) == 6] <- ContDf$Content[nchar(ContDf$Content) == 6]
+  yyPrt                    <- as.numeric(ContDf$Date3)
+  yyPrt[nchar(yyPrt) != 4] <- ""
   
-  year <- strtrim(ContDf$Six_Char,2)
-  cent <- ifelse(as.numeric(year) < as.numeric(substr(format(Sys.Date(), "%Y"),3,4)),as.numeric(substr(format(Sys.Date(), "%Y"),1,2)),as.numeric(substr(format(Sys.Date(), "%Y"),1,2))-1)
-  cent[is.na(cent)] <- ""
-  month <- substr(ContDf$Six_Char,3,4)
-  day <- substr(ContDf$Six_Char,5,6)
-  Result6 <- paste(cent, year, "-", month, "-", day, sep = "")
-  Result6[Result6 == "--"] <- NA
-  ContDf$Six_Char <- Result6
-  ContDf$Content[!is.na(Result6)] <- NA
-  ContDf$Out[!is.na(ContDf$Six_Char)] <- ContDf$Six_Char[!is.na(ContDf$Six_Char)]
-  
-  #############################################################################################
-  
-  ContDf$YearFromNum[!is.na(as.numeric(ContDf$Content))] <- ContDf$Content[!is.na(as.numeric(ContDf$Content))]
-  ContDf$YearFromNum <- as.Date(as.numeric(ContDf$YearFromNum), origin = "1899-12-30")
-  ContDf$Content[!is.na(ContDf$YearFromNum)] <- NA
-  ContDf$Out[!is.na(ContDf$YearFromNum)] <- ContDf$YearFromNum[!is.na(ContDf$YearFromNum)]
-  
-  #############################################################################################
-  
-  ContDf$Leftyear[!is.na(as.numeric(substr(ContDf$Content,1,4)))] <- ContDf$Content[!is.na(as.numeric(substr(ContDf$Content,1,4)))]
-  LYDat <- ContDf$Leftyear
-  
-  leftprt <- as.numeric(substr(LYDat, 6, 7))
-  rightprt <- as.numeric(substr(LYDat, 9, 10))
-  
-  leftprt_ch <- ifelse(leftprt > 12, 1, 0)
-  leftprt_ch[is.na(leftprt_ch)] <- FALSE
-  
-  LYDat[leftprt_ch == 1] <- paste(substr(LYDat, 1, 4), "-", 
-                                  substr(LYDat, 9, 10), "-", 
-                                  substr(LYDat, 6, 7), sep = "")[leftprt_ch == 1]
-  
-  LYDat[LYDat == ""] <- NA
-  
-  ContDf$Leftyear <- LYDat
-  
-  ContDf$Content[!is.na(ContDf$Leftyear)] <- NA
-  ContDf$Out[!is.na(ContDf$Leftyear)] <- ContDf$Leftyear[!is.na(ContDf$Leftyear)]
-  
+  if (sum(yyPrt != "") > 0){
+    ddPrt              <- as.numeric(ContDf$Date1)
+    ddPrt[yyPrt == ""] <- NA
+    mmPrt              <- as.numeric(ContDf$Date2)
+    mmPrt[yyPrt == ""] <- NA
+    
+    yyPrt[ddPrt == 0 | mmPrt == 0] <- 1899
+    mmPrt[ddPrt == 0 | mmPrt == 0] <- 12
+    ddPrt[ddPrt == 0 | mmPrt == 0] <- 30
+    
+    YrDat                <- paste(yyPrt, mmPrt, ddPrt, sep = "-")
+    YrDat                <- gsub("NA", "", YrDat)
+    YrDat[YrDat == "--"] <- NA
+    
+    mmPrt_ch                   <- ifelse(mmPrt > 12, 1, 0)
+    mmPrt_ch[is.na(mmPrt_ch)]  <- FALSE
+    
+    YrDat[mmPrt_ch == 1] <- paste(yyPrt, ddPrt, mmPrt, sep = "-")[mmPrt_ch == 1]
+    
+    ContDf$OUT[!is.na(YrDat)] <- as.Date(YrDat[!is.na(YrDat)])
+  }
   
   #############################################################################################
+  # Date is of the numeric format -> 42095 
+  # NB - five digits, 
+  #       anything more than won't be a valid date for the next 150 years ( the year 2173)
+  #       anything less than 5 digits is before 1928
+  #       therefore a five digit value is a safe number to indicate a numeric year format
   
-  ContDf$RightYear[!is.na(ContDf$Content)] <- ContDf$Content[!is.na(ContDf$Content)]
-  RYDat <- ContDf$RightYear
+  onepartonly <- rowSums(is.na(ContDf))
+  onepartonly[onepartonly != 0] <- onepartonly[onepartonly != 0] - 1 # Remove 1 for the added "OUT" column, now the entries with a 1 is numonly
   
-  leftprt <- as.numeric(substr(RYDat, 1, 2))
-  rightprt <- as.numeric(substr(RYDat, 4, 5))
+  if (sum(onepartonly) > 0) {
+    onepartonlyfinal                   <- NA
+    onepartonlyfinal[onepartonly == 1] <- ContDf$Date1[onepartonly == 1]
+    
+    onepartonlyfinal[nchar(onepartonlyfinal) != 5] <- ""
+    
+    onepartonlyfinal <-  as.Date(as.numeric(onepartonlyfinal), origin = "1899-12-30")
+    
+    ContDf$OUT[!is.na(onepartonlyfinal)] <- as.Date(onepartonlyfinal[!is.na(onepartonlyfinal)]) 
+  }
   
-  leftprt_ch <- ifelse(leftprt > 12, 2, 1)
-  leftprt_ch[is.na(leftprt_ch)] <- 0
+  #############################################################################################
+  # Date format could also be 20050109 or 01092005, but this could also include things like:
+  # 20050109 -> 050109 or 50109
+  # 01092005 -> 010905 or 10905
+  # these will barely makse sense even if you try and interpret them manually
   
-  RYDat[leftprt_ch == 2] <- paste(substr(RYDat, 7, 10), "-", 
-                                  substr(RYDat, 4, 5), "-", 
-                                  substr(RYDat, 1, 2), sep = "")[leftprt_ch == 2]
-  
-  RYDat[leftprt_ch == 1] <- paste(substr(RYDat, 7, 10), "-", 
-                                  substr(RYDat, 1, 2), "-", 
-                                  substr(RYDat, 4, 5), sep = "")[leftprt_ch == 1]
-  RYDat[RYDat == ""] <- NA
-  ContDf$RightYear <- RYDat
-  
-  ContDf$Content[!is.na(ContDf$RightYear)] <- NA
-  ContDf$Out[!is.na(ContDf$RightYear)] <- ContDf$RightYear[!is.na(ContDf$RightYear)]
-  
-  return(ContDf$Out)
+  return(ContDf$OUT)
   
 }
 
@@ -470,14 +497,35 @@ countLetter <- function(charvec, letter){
   }, letter = letter)
 }
 
+######################################################################################################
 
+CountAllNums <- function(charvec){
+  countr <- nchar(charvec)
+  onlychars <- gsub("[^0-9]", "", charvec)
+  countr
+}
 
+######################################################################################################
 
+sumSplitValues <- function(dat) {
+  tmp <- strsplit(dat, "")
+  unlist(lapply(lapply(tmp, as.numeric), sum))
+}
 
+######################################################################################################
 
+UniDash <- function(Cont){
 
+  Cont <- as.character(toupper(Cont))
 
-
+  Cont <- gsub(" ", "",   Cont)
+  Cont <- gsub("/", "-",  Cont)
+  Cont <- gsub("\\", "-", Cont, fixed = TRUE)
+  Cont <- gsub(".", "-",  Cont, fixed = TRUE)
+  
+  return(Cont)
+  
+}
 
 
 
