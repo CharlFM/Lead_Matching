@@ -27,33 +27,15 @@ dbDisconnectAll()
 # Cleans Data #
 ###############
 
-source(paste(Path, "/R_Code/Append_Sort.R", sep = ""))
+# Cleans data used for modelling
+source(paste(Path, "/R_Code/Clean_Model_Data.R", sep = ""))
 
-#####################################################################################################
-# Appending by Month #
-######################
-
-source(paste(Path, "/R_Code/Appender.R", sep = ""))
+# Cleans data used for prediction
+source(paste(Path, "/R_Code/Append_Sort.R", sep = "")) # To be adjusted - loads of changes
 
 #####################################################################################################
 # Prepare Model Data #
 ######################
-
-AgentDat <- MidALL # TopNTU ; LowNTU ; MidNTU ; TopLAP ; LowLAP ; MidLAP ; TopALL ; LowALL ; MidALL
-AgentDat
-Dat_Loop <- ALLData[(ALLData$AGENTNAME %in% AgentDat), ]  # NTUData ; LAPData ; ALLData
-Dat_Loop <- subset(Dat_Loop, select = -c(AGENTNAME, Year))
-to_drop <- c()
-
-for (i in 1:ncol(Dat_Loop)) {
-  if (sum(Dat_Loop[[i]] == Dat_Loop[[i]][1]) == nrow(Dat_Loop)) {
-    to_drop <- c(to_drop, i)
-  }
-}
-
-Dat_Loop <- Dat_Loop[, -to_drop]
-
-prop.table(table(Dat_Loop$STATUS))
 
 source(paste(Path, "/R_Code/Prep_Model_Data.R", sep = ""))
 
