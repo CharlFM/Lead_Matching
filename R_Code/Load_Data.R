@@ -1,5 +1,13 @@
 # Loads City Data - to get province info
 
+City_Post_Data <- fread(paste(Path, "/Data/City_Data/With_PostalCode.csv", sep = ""),
+                        colClasses  =  "character",
+                        header      =  TRUE,
+                        skip        = 0)
+City_Post_Data <- as.data.frame(City_Post_Data)
+
+colnames(City_Post_Data)  <-  gsub(" ","", gsub("[^[:alnum:] ]", "", toupper(colnames(City_Post_Data))))
+
 City_Data <- fread(paste(Path, "/Data/City_Data/SouthAfricanCities.csv", sep = ""),
                    colClasses  =  "character",
                    header      =  TRUE,
@@ -7,6 +15,7 @@ City_Data <- fread(paste(Path, "/Data/City_Data/SouthAfricanCities.csv", sep = "
 City_Data <- as.data.frame(City_Data)
 
 colnames(City_Data)  <-  gsub(" ","", gsub("[^[:alnum:] ]", "", toupper(colnames(City_Data))))
+
 
 #####################################################################################################
 # Cleans Province info #
@@ -39,6 +48,12 @@ Race_Data <- fread(paste(Path, "/Data/Race_Data/Race_Data.csv", sep = ""),
 Race_Data <- as.data.frame(Race_Data)
 
 colnames(Race_Data)  <-  gsub(" ","", gsub("[^[:alnum:] ]", "", toupper(colnames(Race_Data))))
+
+Race_Data$RACE     <-  gsub("[^[:alpha:] ]", "", toupper(Race_Data$RACE))
+Race_Data$SURNAME  <-  gsub(" ","", gsub("[^[:alpha:] ]", "", toupper(Race_Data$SURNAME)))
+Race_Data$CULTURE  <-  gsub("[^[:alpha:] ]", "", toupper(Race_Data$CULTURE))
+
+Race_Data <- subset(Race_Data, !duplicated(SURNAME))
 
 ####################### 
 ###### Load New #######
@@ -125,7 +140,8 @@ BAR_DAT <- subset(BAR_DAT, select = -POSTALADDRESS)
 
 BAR_DAT <- cbind(BAR_DAT, postadr, Pos_Code)
 
-BAR_DAT$SOURCE <- "BARLOW"
+BAR_DAT$AFFINITY <- "BARLOW"
+BAR_DAT$SOURCE   <- "BARLOW"
 
 #################################################################################################################################################
 
@@ -147,7 +163,8 @@ SIG_DAT <- subset(SIG_DAT, select = -c(CLIENTRESIDENTIALADDRESS, CLIENTPOSTALADD
 
 SIG_DAT$TRANSACTIONNUMBER <- paste("SIG", as.character(as.Date(fileXLSDate)), seq(1:nrow(SIG_DAT)), sep = "_")
 
-SIG_DAT$SOURCE <- "SIGNIA"
+SIG_DAT$SOURCE    <-  "SIGNIA"
+SIG_DAT$AFFINITY  <-  SIG_DAT$MERCHANTNAME
 
 #################################################################################################################################################
 
@@ -230,21 +247,33 @@ colnames(DB_DAT) <- DB_Names$New[match(colnames(DB_DAT), DB_Names$Original)]
 
 #################################################################################################################################################
 
+Stat_DAT <- dbReadTable(mydb, "ALV1_Lead_Stats")
+
+Stat_DAT <- Stat_DAT[!is.na(Stat_DAT$Lead.Number), ]
+
+Stat_DAT$Lead.Pick.Up.Date <- DateConv(Stat_DAT$Lead.Pick.Up.Date)
+Stat_DAT$Lead.Pick.up.Time <- format(as.POSIXct(Stat_DAT$Lead.Pick.up.Time, format = "%H:%M:%S"), "%H:%M:%S")
+
+Stat_DAT <- Stat_DAT[!is.na(Stat_DAT$Lead.Pick.Up.Date), ]
+Stat_DAT <- Stat_DAT[Stat_DAT$Lead.Pick.Up.Date > as.Date("2000-12-31"), ]
+
+Stat_DAT <- Stat_DAT[order(Stat_DAT$Lead.Pick.Up.Date, Stat_DAT$Lead.Pick.up.Time, decreasing = TRUE), ]
+
+Stat_DAT <- Stat_DAT[!duplicated(Stat_DAT$Lead.Number), ]
+
+Stat_DAT <- subset(Stat_DAT, select = c(Lead.Number, Reason.Status))
+colnames(Stat_DAT) <- c("LEADNUMBER", "STATUS2")
+
+DB_DAT <- merge(DB_DAT, Stat_DAT, by.x = "LEADNUMBER", by.y = "LEADNUMBER", all.x = TRUE)
+
+#################################################################################################################################################
+
 # Clean up
 
 rm(ACC_temp, lead_File_List, num_lead_file, sig, bar, SIG_DAT, BAR_DAT, BAR_Names, SIG_Names, clID, n, l,
    postadr, postadr2, postadr3, codepos, Pos_Code, resadr, res_Pos_Code, posadr, pos_Pos_Code, remove, counter,
    num_lead_file, lead_File_List, fileXLSDate, common_cols, file_name, leadfile, lead_Data, SIR_Names,
-   DB_Names)
-
-
-
-
-
-
-
-
-
+   DB_Names, Stat_DAT)
 
 
 
