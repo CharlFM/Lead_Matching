@@ -21,6 +21,9 @@ DB_DAT$ZLAGENT <- gsub(" ", "", gsub("[^[:alpha:] ]", "", toupper(DB_DAT$ZLAGENT
 # Remove unknown agent data - no point in modelling this
 DB_DAT <- DB_DAT[!(DB_DAT$ZLAGENT == "" | is.na(DB_DAT$ZLAGENT)), ]
 
+# Select only active agents
+DB_DAT <- DB_DAT[DB_DAT$ZLAGENT %in% Active_Agents_Data$ACTIVEAGENTS, ]
+
 # Affinity
 DB_DAT$AFFINITY <- gsub(" ", "", gsub("[^[:alpha:] ]", "", toupper(DB_DAT$AFFINITY)))
 
@@ -94,6 +97,38 @@ DB_DAT$INCEPTIONDATE[DB_DAT$INCEPTIONDATE == "########"] <- NA
 
 DB_DAT$INCEPTIONDATE[is.na(DB_DAT$INCEPTIONDATE)] <- DB_DAT$FIRSTALLOCATIONDATE[is.na(DB_DAT$INCEPTIONDATE)]  
 DB_DAT$INCEPTIONDATE[is.na(DB_DAT$INCEPTIONDATE)] <- DB_DAT$LEADDATE[is.na(DB_DAT$INCEPTIONDATE)]
+
+DB_DAT$LEADDATE[is.na(DB_DAT$LEADDATE)] <- DB_DAT$FIRSTALLOCATIONDATE[is.na(DB_DAT$LEADDATE)]  
+DB_DAT$LEADDATE <- DateConv(DB_DAT$LEADDATE)
+
+# Uncomment using ctrl shift c if needed
+# # Average Sales per month by agent ----------------------------------------
+# 
+# Temp_DB <- DB_DAT
+# Temp_DB$ByYear <- format(Temp_DB$LEADDATE, "%Y")
+# Temp_DB$ByMonth <- format(Temp_DB$LEADDATE, "%m")
+# Temp_DB$ByYearMonth <- paste(Temp_DB$ByYear, Temp_DB$ByMonth)
+# 
+# Results <- Temp_DB %>% 
+#   group_by(ByYearMonth, ZLAGENT) %>%
+#   summarise(TotSales = sum(STATUS, na.rm = TRUE))
+# mean(Results$TotSales)
+# 
+# ResultsTot <- Temp_DB %>% 
+#   group_by(ByYearMonth) %>%
+#   summarise(TotSales = sum(STATUS, na.rm = TRUE))
+# mean(ResultsTot$TotSales)
+# 
+# Res2 <- Results %>% 
+#   group_by(ZLAGENT) %>%
+#   summarise(Mins     = min(TotSales, na.rm = TRUE),
+#             Averages = mean(TotSales, na.rm = TRUE),
+#             Maxs     = max(TotSales, na.rm = TRUE))
+# 
+# rm(Temp_DB, Results, ResultsTot, Res2)
+
+#   -----------------------------------------------------------------------
+
 
 DB_DAT <- subset(DB_DAT, select = -c(FIRSTALLOCATIONDATE, LEADDATE))
 
@@ -270,6 +305,12 @@ rm(temp_tbl, Keeper)
 DB_DAT$CLIENTOCCUPATIONNAME <- gsub("[^[:alpha:]]", "", toupper(gsub("^.*?\\.", "", DB_DAT$CLIENTOCCUPATIONNAME)))
 DB_DAT$CLIENTOCCUPATIONNAME[DB_DAT$CLIENTOCCUPATIONNAME == ""] <- NA
 
+temp_tbl    <- data.frame(table(DB_DAT$CLIENTOCCUPATIONNAME)) 
+Keeper      <- as.character(temp_tbl$Var1[temp_tbl$Freq/nrow(DB_DAT) > 0.005])
+DB_DAT$CLIENTOCCUPATIONNAME[!(DB_DAT$CLIENTOCCUPATIONNAME %in% Keeper)] <- "OTHER"
+
+rm(temp_tbl, Keeper)
+
 ########################################################## 
 # Clean Vehicle Use Info #
 ##########################
@@ -284,8 +325,18 @@ DB_DAT$VEHICLEUSE[DB_DAT$VEHICLEUSE == ""] <- NA
 DB_DAT$DOCINSURANCECOMPANYNAME <- gsub("[^[:alpha:]]", "", toupper(gsub("^.*?\\.", "", DB_DAT$DOCINSURANCECOMPANYNAME)))
 DB_DAT$DOCINSURANCECOMPANYNAME[DB_DAT$DOCINSURANCECOMPANYNAME == ""] <- NA
 
+temp_tbl    <- data.frame(table(DB_DAT$DOCINSURANCECOMPANYNAME)) 
+Keeper      <- as.character(temp_tbl$Var1[temp_tbl$Freq/nrow(DB_DAT) > 0.005])
+DB_DAT$DOCINSURANCECOMPANYNAME[!(DB_DAT$DOCINSURANCECOMPANYNAME %in% Keeper)] <- "OTHER"
+
 DB_DAT$DOCFINANCECOMPANYNAME <- gsub("[^[:alpha:]]", "", toupper(gsub("^.*?\\.", "", DB_DAT$DOCFINANCECOMPANYNAME)))
 DB_DAT$DOCFINANCECOMPANYNAME[DB_DAT$DOCFINANCECOMPANYNAME == ""] <- NA
+
+temp_tbl    <- data.frame(table(DB_DAT$DOCFINANCECOMPANYNAME)) 
+Keeper      <- as.character(temp_tbl$Var1[temp_tbl$Freq/nrow(DB_DAT) > 0.005])
+DB_DAT$DOCFINANCECOMPANYNAME[!(DB_DAT$DOCFINANCECOMPANYNAME %in% Keeper)] <- "OTHER"
+
+rm(temp_tbl, Keeper)
 
 ########################################################## 
 # Clean Client Banking Info #
@@ -294,11 +345,26 @@ DB_DAT$DOCFINANCECOMPANYNAME[DB_DAT$DOCFINANCECOMPANYNAME == ""] <- NA
 DB_DAT$CLIENTBANKNAME <- gsub("[^[:alpha:]]", "", toupper(gsub("^.*?\\.", "", DB_DAT$CLIENTBANKNAME)))
 DB_DAT$CLIENTBANKNAME[DB_DAT$CLIENTBANKNAME == ""] <- NA
 
+temp_tbl    <- data.frame(table(DB_DAT$CLIENTBANKNAME)) 
+Keeper      <- as.character(temp_tbl$Var1[temp_tbl$Freq/nrow(DB_DAT) > 0.005])
+DB_DAT$CLIENTBANKNAME[!(DB_DAT$CLIENTBANKNAME %in% Keeper)] <- "OTHER"
+
 DB_DAT$CLIENTBANKBRANCH <- gsub("[^[:alpha:]]", "", toupper(gsub("^.*?\\.", "", DB_DAT$CLIENTBANKBRANCH)))
 DB_DAT$CLIENTBANKBRANCH[DB_DAT$CLIENTBANKBRANCH == ""] <- NA
+DB_DAT$CLIENTBANKBRANCH <- ifelse(DB_DAT$CLIENTBANKBRANCH != "", paste(DB_DAT$CLIENTBANKNAME, DB_DAT$CLIENTBANKBRANCH, sep = "_"), "")
+
+temp_tbl    <- data.frame(table(DB_DAT$CLIENTBANKBRANCH)) 
+Keeper      <- as.character(temp_tbl$Var1[temp_tbl$Freq/nrow(DB_DAT) > 0.005])
+DB_DAT$CLIENTBANKBRANCH[!(DB_DAT$CLIENTBANKBRANCH %in% Keeper)] <- "OTHER"
 
 DB_DAT$CLIENTBANKACCOUNTTYPE <- gsub("[^[:alpha:]]", "", toupper(gsub("^.*?\\.", "", DB_DAT$CLIENTBANKACCOUNTTYPE)))
 DB_DAT$CLIENTBANKACCOUNTTYPE[DB_DAT$CLIENTBANKACCOUNTTYPE == ""] <- NA
+
+temp_tbl    <- data.frame(table(DB_DAT$CLIENTBANKACCOUNTTYPE)) 
+Keeper      <- as.character(temp_tbl$Var1[temp_tbl$Freq/nrow(DB_DAT) > 0.005])
+DB_DAT$CLIENTBANKACCOUNTTYPE[!(DB_DAT$CLIENTBANKACCOUNTTYPE %in% Keeper)] <- "OTHER"
+
+rm(temp_tbl, Keeper)
 
 ########################################################## 
 # Clean Branch and Salesman Info #
@@ -312,6 +378,16 @@ DB_DAT$SALESPERSON <- ifelse(DB_DAT$SALESPERSON != "", paste(DB_DAT$BRANCHNAME, 
 
 DB_DAT$SALESPERSON[DB_DAT$SALESPERSON == ""] <- NA
 DB_DAT$BRANCHNAME[DB_DAT$BRANCHNAME == ""]   <- NA
+
+temp_tbl    <- data.frame(table(DB_DAT$SALESPERSON)) 
+Keeper      <- as.character(temp_tbl$Var1[temp_tbl$Freq/nrow(DB_DAT) > 0.005])
+DB_DAT$SALESPERSON[!(DB_DAT$SALESPERSON %in% Keeper)] <- "OTHER"
+
+temp_tbl    <- data.frame(table(DB_DAT$BRANCHNAME)) 
+Keeper      <- as.character(temp_tbl$Var1[temp_tbl$Freq/nrow(DB_DAT) > 0.005])
+DB_DAT$BRANCHNAME[!(DB_DAT$BRANCHNAME %in% Keeper)] <- "OTHER"
+
+rm(temp_tbl, Keeper)
 
 ########################################################## 
 # Clean All Numeric Variables #
@@ -386,6 +462,16 @@ DB_DAT$MODEL <- gsub("[^[:alnum:] ]", "", toupper(gsub("^.*?\\.", "", DB_DAT$MOD
 
 rm(n, l, ModDf)
 
+temp_tbl    <- data.frame(table(DB_DAT$MODEL)) 
+Keeper      <- as.character(temp_tbl$Var1[temp_tbl$Freq/nrow(DB_DAT) > 0.005])
+DB_DAT$MODEL[!(DB_DAT$MODEL %in% Keeper)] <- "OTHER"
+
+temp_tbl    <- data.frame(table(DB_DAT$MANUFACTURER)) 
+Keeper      <- as.character(temp_tbl$Var1[temp_tbl$Freq/nrow(DB_DAT) > 0.005])
+DB_DAT$MANUFACTURER[!(DB_DAT$MANUFACTURER %in% Keeper)] <- "OTHER"
+
+rm(temp_tbl, Keeper)
+
 ########################################################## 
 # Count Number Of Accessories #
 ###############################
@@ -449,13 +535,23 @@ rm(Provinces, City_Data, AdrDf, n, l, tempDf, i, PostCol, PcodeFin, City_Post_Da
 
 DB_DAT <- subset(DB_DAT, select = -CLIENTFULLPOSTAL)
 
-colnames(DB_DAT)[colnames(DB_DAT) == "CITY"] <- "CLIENTPOSTALADDRESSCITY"
-colnames(DB_DAT)[colnames(DB_DAT) == "PROVINCE"] <- "CLIENTPOSTALADDRESSPROVINCE"
-colnames(DB_DAT)[colnames(DB_DAT) == "SUBURB"] <- "CLIENTPOSTALADDRESSSUBURB"
+colnames(DB_DAT)[colnames(DB_DAT) == "CITY"]      <-  "CLIENTPOSTALADDRESSCITY"
+colnames(DB_DAT)[colnames(DB_DAT) == "PROVINCE"]  <-  "CLIENTPOSTALADDRESSPROVINCE"
+colnames(DB_DAT)[colnames(DB_DAT) == "SUBURB"]    <-  "CLIENTPOSTALADDRESSSUBURB"
 
+temp_tbl    <- data.frame(table(DB_DAT$CLIENTPOSTALADDRESSCITY)) 
+Keeper      <- as.character(temp_tbl$Var1[temp_tbl$Freq/nrow(DB_DAT) > 0.005])
+DB_DAT$CLIENTPOSTALADDRESSCITY[!(DB_DAT$CLIENTPOSTALADDRESSCITY %in% Keeper)] <- "OTHER"
 
+temp_tbl    <- data.frame(table(DB_DAT$CLIENTPOSTALADDRESSPOSTALCODE)) 
+Keeper      <- as.character(temp_tbl$Var1[temp_tbl$Freq/nrow(DB_DAT) > 0.005])
+DB_DAT$CLIENTPOSTALADDRESSPOSTALCODE[!(DB_DAT$CLIENTPOSTALADDRESSPOSTALCODE %in% Keeper)] <- "OTHER"
 
+temp_tbl    <- data.frame(table(DB_DAT$CLIENTPOSTALADDRESSSUBURB)) 
+Keeper      <- as.character(temp_tbl$Var1[temp_tbl$Freq/nrow(DB_DAT) > 0.005])
+DB_DAT$CLIENTPOSTALADDRESSSUBURB[!(DB_DAT$CLIENTPOSTALADDRESSSUBURB %in% Keeper)] <- "OTHER"
 
+rm(temp_tbl, Keeper)
 
 
 
