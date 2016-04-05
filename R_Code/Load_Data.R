@@ -1,3 +1,15 @@
+# Active agents only
+
+Active_Agents_Data <- fread(paste(Path, "/Data/Active_Agents/Actives.csv", sep = ""),
+                        colClasses  =  "character",
+                        header      =  TRUE,
+                        skip        = 0)
+Active_Agents_Data <- as.data.frame(Active_Agents_Data)
+
+colnames(Active_Agents_Data)  <-  gsub(" ","", gsub("[^[:alnum:] ]", "", toupper(colnames(Active_Agents_Data))))
+
+Active_Agents_Data$ACTIVEAGENTS <- gsub(" ","", gsub("[^[:alnum:] ]", "", toupper(Active_Agents_Data$ACTIVEAGENTS)))
+
 # Loads City Data - to get province info
 
 City_Post_Data <- fread(paste(Path, "/Data/City_Data/With_PostalCode.csv", sep = ""),
