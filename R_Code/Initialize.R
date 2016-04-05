@@ -11,6 +11,12 @@ options(scipen = 999)
 library(XLConnect)
 library(readxl)
 library(ChainLadder)
+
+library(rpart)
+library(party)
+library(rpart.plot)
+library(rattle)
+
 library(ggplot2)
 library(reshape)
 library(gbm)
@@ -27,6 +33,7 @@ library(glmnet)
 library(caret)
 library(gtools)
 library(stringr)
+library(ROCR)
 
 ########################################################################################################################################
 ########################################################################################################################################
@@ -528,7 +535,122 @@ UniDash <- function(Cont){
 }
 
 
+######################################################################################################
 
+# define some helper and reporting functions
+# calulcate area under the curve of numeric vectors x,y
+# length(x)==length(y)
+# y>=0, 0<=x<=1 and x increasing
+areaCalc <- function(x,y) {
+  # append extra points to get rid of degenerate cases
+  x <- c(0,x,1)
+  y <- c(0,y,1)
+  n <- length(x)
+  sum(0.5*(y[-1]+y[-n])*(x[-1]-x[-n]))
+}
+
+gainCurve = function(truthcol, predcol, title) {
+  truthcol <- as.numeric(truthcol)
+  # data frame of pred and truth, sorted in order of the predictions
+  d = data.frame(predcol=predcol,truthcol=truthcol)
+  predord = order(d[['predcol']], decreasing=TRUE) # reorder, with highest first
+  wizard = order(d[['truthcol']], decreasing=TRUE)
+  npop = dim(d)[1]
+  
+  # data frame the cumulative prediction/truth as a function
+  # of the fraction of the population we're considering, highest first
+  results = data.frame(pctpop= (1:npop)/npop,
+                       model = cumsum(d[predord,'truthcol'])/sum(d[['truthcol']]),
+                       wizard = cumsum(d[wizard, 'truthcol'])/sum(d[['truthcol']]))
+  
+  # calculate the areas under each curve
+  # gini score is 2* (area - 0.5)
+  idealArea = areaCalc(results$pctpop,results$wizard) - 0.5
+  modelArea = areaCalc(results$pctpop,results$model) - 0.5
+  giniScore = modelArea/idealArea # actually, normalized gini score
+  
+  # melt the frame into the tall form, for plotting
+  results = melt(results, id.vars="pctpop", measure.vars=c("model", "wizard"),
+                 variable.name="sort_criterion", value.name="pct_outcome")
+  
+  gplot = ggplot(data=results, aes(x=pctpop, y=pct_outcome, color=sort_criterion)) + 
+    geom_point() + geom_line() + 
+    geom_abline(color="gray") +
+    ggtitle(paste("Gain curve,", title, '\n', 
+                  'relative Gini score', format(giniScore,digits=2))) +
+    xlab("% items in score order") + ylab("% total category") +
+    scale_x_continuous(breaks=seq(0,1,0.1)) +
+    scale_y_continuous(breaks=seq(0,1,0.1)) +
+    scale_color_manual(values=c('model'='darkblue', 'wizard'='darkgreen'))
+  gplot
+}
+
+
+plotROC <- function(title,outcol,predcol) {
+  pred <- prediction(predcol,outcol)
+  perf <- performance(pred,'tpr','fpr')
+  auc <- as.numeric(performance(pred,'auc')@y.values)
+  pf <- data.frame(
+    FalsePositiveRate=perf@x.values[[1]],
+    TruePositiveRate=perf@y.values[[1]])
+  plot=ggplot() +
+    geom_ribbon(data=pf,aes(x=FalsePositiveRate,ymax=TruePositiveRate,ymin=0),
+                fill='blue',alpha=0.3) +
+    geom_point(data=pf,aes(x=FalsePositiveRate,y=TruePositiveRate)) +
+    geom_line(aes(x=c(0,1),y=c(0,1))) + coord_fixed() +
+    ggtitle(paste(title,'\nAUC:',format(auc,digits=2)))
+  list(pf=pf,plot=plot)
+}
+
+
+deviance <- function(truth,pred,epsilon=0) {
+  pred = pmax(pred, epsilon)
+  pred = pmin(pred, 1-epsilon)
+  S = 0.0 # assumed log-likelihood of saturated model
+  -2*(sum(ifelse(truth,log(pred),log(1-pred)))-S)
+}
+
+
+reportStats <- function(d,test,modelName,title,epsilon) {
+  dSub <- d[d$isTest==test,,drop=FALSE]
+  tab <- table(truth=dSub[,yColumn],pred=dSub[,modelName]>0.5)
+  accuracy <- (tab[1,1] + tab[2,2])/sum(tab)
+  note = ifelse(test,'test','train')
+  print(paste('\t',note,'accuracy',modelName,format(accuracy,digits=2)))
+  residual.deviance <- deviance(dSub[,yColumn],dSub[,modelName],epsilon)
+  #print(paste('\tresidual.deviance',residual.deviance))
+  null.deviance <- deviance(dSub[,yColumn],mean(dSub[,yColumn]),epsilon)
+  #print(paste('\tnull.deviance',null.deviance))
+  print(paste("\tmodel explained a",
+              format((1-residual.deviance/null.deviance),digits=2),
+              "fraction of the variation on",note))  
+}
+
+report <- function(d,modelName,title,epsilon=1.0e-2) {
+  print("***********")
+  print(paste("model",modelName,title))
+  reportStats(d,FALSE,modelName,title,epsilon)
+  reportStats(d,TRUE,modelName,title,epsilon)
+  print(ggplot(data=d[d$isTest==TRUE,,drop=FALSE],
+               aes_string(x=modelName,color=yColumn)) + 
+          geom_density() + 
+          ggtitle(paste(title,'test')))
+  print(plotROC(paste(title,'train'),
+                d[d$isTest==FALSE,yColumn],
+                d[d$isTest==FALSE,modelName])$plot)
+  print(plotROC(paste(title,'test'),
+                d[d$isTest==TRUE,yColumn],
+                d[d$isTest==TRUE,modelName])$plot)
+  print(gainCurve(d[d$isTest==FALSE,yColumn],
+                  d[d$isTest==FALSE,modelName],
+                  paste(title,'train')))
+  print(gainCurve(d[d$isTest==TRUE,yColumn],
+                  d[d$isTest==TRUE,modelName],
+                  paste(title,'test')))
+  print("***********")
+}
+
+######################################################################################################
 
 
 
