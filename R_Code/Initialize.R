@@ -10,30 +10,39 @@ options(scipen = 999)
 
 library(XLConnect)
 library(readxl)
-library(ChainLadder)
+library(RMySQL)
+library(jsonlite)
+
+library(data.table)
+library(dplyr)
+library(tidyr)
+library(Matrix)
+library(stringr)
+library(gtools)
+library(reshape)
+
+library(lubridate)
 
 library(rpart)
-library(party)
 library(rpart.plot)
+library(party)
 library(rattle)
 
 library(ggplot2)
-library(reshape)
+
 library(gbm)
+library(dismo)
 library(randomForest)
-library(AUC)
 library(xgboost)
-library(RMySQL)
 library(Ckmeans.1d.dp)
-library(data.table)
-library(dplyr)
-library(Matrix)
-library(pROC) 
 library(glmnet) 
 library(caret)
-library(gtools)
-library(stringr)
+
+library(AUC)
+library(pROC) 
 library(ROCR)
+
+library(mixtools)
 
 ########################################################################################################################################
 ########################################################################################################################################
@@ -77,7 +86,7 @@ DateConv <- function(Cont){
   
   ContDf <- data.frame(t(do.call(cbind, l)), stringsAsFactors = FALSE)
   colnames(ContDf) <- paste("Date", seq(1:ncol(ContDf)), sep = "")
-
+  
   ContDf$Date1[is.na(ContDf$Date1)] <- as.Date(0, origin = "1899-12-30")
   
   Months <- c("JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC")
@@ -86,84 +95,109 @@ DateConv <- function(Cont){
     OnNames <- which(ContDf[, i] %in% Months)
     ContDf[, i][OnNames] <- which(Months %in% ContDf[, i][OnNames])
   }
-
+  
   ContDf$OUT <- rep(as.Date(0, origin = "1899-12-30"), length(Cont))
+  
+  if (ncol(ContDf) == 2) {
+    
+    #############################################################################################
+    # Date is of the numeric format -> 42095 
+    # NB - five digits, 
+    #       anything more than won't be a valid date for the next 150 years ( the year 2173)
+    #       anything less than 5 digits is before 1928
+    #       therefore a five digit value is a safe number to indicate a numeric year format
+    
+    onepartonly <- rep(1, nrow(ContDf))
 
-  #############################################################################################
-  # Year is left -> yyyy-dd-mm or yyyy-mm-dd
-  
-  yyPrt                    <- as.numeric(ContDf$Date1)
-  yyPrt[nchar(yyPrt) != 4] <- ""
-  
-  if (sum(yyPrt != "") > 0){
-    mmPrt              <- as.numeric(ContDf$Date2)
-    mmPrt[yyPrt == ""] <- NA
-    ddPrt              <- as.numeric(substr(ContDf$Date3, 1, 2))
-    ddPrt[yyPrt == ""] <- NA
+    if (sum(onepartonly) > 0) {
+      onepartonlyfinal                   <- NA
+      onepartonlyfinal[onepartonly == 1] <- ContDf$Date1[onepartonly == 1]
+      
+      onepartonlyfinal[nchar(onepartonlyfinal) != 5] <- ""
+      
+      onepartonlyfinal <-  as.Date(as.numeric(onepartonlyfinal), origin = "1899-12-30")
+      
+      ContDf$OUT[!is.na(onepartonlyfinal)] <- as.Date(onepartonlyfinal[!is.na(onepartonlyfinal)]) 
+    }
     
-    yyPrt[ddPrt == 0 | mmPrt == 0] <- 1899
-    mmPrt[ddPrt == 0 | mmPrt == 0] <- 12
-    ddPrt[ddPrt == 0 | mmPrt == 0] <- 30
+  } else {
+    #############################################################################################
+    # Year is left -> yyyy-dd-mm or yyyy-mm-dd
     
-    YrDat                <- paste(yyPrt, mmPrt, ddPrt, sep = "-")
-    YrDat                <- gsub("NA", "", YrDat)
-    YrDat[YrDat == "--"] <- NA
+    yyPrt                    <- as.numeric(ContDf$Date1)
+    yyPrt[nchar(yyPrt) != 4] <- ""
     
-    mmPrt_ch                   <- ifelse(mmPrt > 12, 1, 0)
-    mmPrt_ch[is.na(mmPrt_ch)]  <- FALSE
+    if (sum(yyPrt != "") > 0){
+      mmPrt              <- as.numeric(ContDf$Date2)
+      mmPrt[yyPrt == ""] <- NA
+      ddPrt              <- as.numeric(substr(ContDf$Date3, 1, 2))
+      ddPrt[yyPrt == ""] <- NA
+      
+      yyPrt[ddPrt == 0 | mmPrt == 0] <- 1899
+      mmPrt[ddPrt == 0 | mmPrt == 0] <- 12
+      ddPrt[ddPrt == 0 | mmPrt == 0] <- 30
+      
+      YrDat                <- paste(yyPrt, mmPrt, ddPrt, sep = "-")
+      YrDat                <- gsub("NA", "", YrDat)
+      YrDat[YrDat == "--"] <- NA
+      
+      mmPrt_ch                   <- ifelse(mmPrt > 12, 1, 0)
+      mmPrt_ch[is.na(mmPrt_ch)]  <- FALSE
+      
+      YrDat[mmPrt_ch == 1] <- paste(yyPrt, ddPrt, mmPrt, sep = "-")[mmPrt_ch == 1]
+      
+      ContDf$OUT[!(is.na(YrDat))] <- as.Date(YrDat[!(is.na(YrDat))])
+    }
     
-    YrDat[mmPrt_ch == 1] <- paste(yyPrt, ddPrt, mmPrt, sep = "-")[mmPrt_ch == 1]
+    #############################################################################################
+    # Year is right -> dd-mm-yyyy or mm-dd-yyyy
     
-    ContDf$OUT[!(is.na(YrDat))] <- as.Date(YrDat[!(is.na(YrDat))])
-  }
-  
-  #############################################################################################
-  # Year is right -> dd-mm-yyyy or mm-dd-yyyy
-  
-  yyPrt                    <- as.numeric(ContDf$Date3)
-  yyPrt[nchar(yyPrt) != 4] <- ""
-  
-  if (sum(yyPrt != "") > 0){
-    ddPrt              <- as.numeric(ContDf$Date1)
-    ddPrt[yyPrt == ""] <- NA
-    mmPrt              <- as.numeric(ContDf$Date2)
-    mmPrt[yyPrt == ""] <- NA
+    yyPrt                    <- as.numeric(ContDf$Date3)
+    yyPrt[nchar(yyPrt) != 4] <- ""
     
-    yyPrt[ddPrt == 0 | mmPrt == 0] <- 1899
-    mmPrt[ddPrt == 0 | mmPrt == 0] <- 12
-    ddPrt[ddPrt == 0 | mmPrt == 0] <- 30
+    if (sum(yyPrt != "") > 0){
+      ddPrt              <- as.numeric(ContDf$Date1)
+      ddPrt[yyPrt == ""] <- NA
+      mmPrt              <- as.numeric(ContDf$Date2)
+      mmPrt[yyPrt == ""] <- NA
+      
+      yyPrt[ddPrt == 0 | mmPrt == 0] <- 1899
+      mmPrt[ddPrt == 0 | mmPrt == 0] <- 12
+      ddPrt[ddPrt == 0 | mmPrt == 0] <- 30
+      
+      YrDat                <- paste(yyPrt, mmPrt, ddPrt, sep = "-")
+      YrDat                <- gsub("NA", "", YrDat)
+      YrDat[YrDat == "--"] <- NA
+      
+      mmPrt_ch                   <- ifelse(mmPrt > 12, 1, 0)
+      mmPrt_ch[is.na(mmPrt_ch)]  <- FALSE
+      
+      YrDat[mmPrt_ch == 1] <- paste(yyPrt, ddPrt, mmPrt, sep = "-")[mmPrt_ch == 1]
+      
+      ContDf$OUT[!is.na(YrDat)] <- as.Date(YrDat[!is.na(YrDat)])
+    }
     
-    YrDat                <- paste(yyPrt, mmPrt, ddPrt, sep = "-")
-    YrDat                <- gsub("NA", "", YrDat)
-    YrDat[YrDat == "--"] <- NA
+    #############################################################################################
+    # Date is of the numeric format -> 42095 
+    # NB - five digits, 
+    #       anything more than won't be a valid date for the next 150 years ( the year 2173)
+    #       anything less than 5 digits is before 1928
+    #       therefore a five digit value is a safe number to indicate a numeric year format
     
-    mmPrt_ch                   <- ifelse(mmPrt > 12, 1, 0)
-    mmPrt_ch[is.na(mmPrt_ch)]  <- FALSE
+    onepartonly <- rowSums(is.na(ContDf))
+    onepartonly[onepartonly != 0] <- onepartonly[onepartonly != 0] - 1 # Remove 1 for the added "OUT" column, now the entries with a 1 is numonly
     
-    YrDat[mmPrt_ch == 1] <- paste(yyPrt, ddPrt, mmPrt, sep = "-")[mmPrt_ch == 1]
+    if (sum(onepartonly) > 0) {
+      onepartonlyfinal                   <- NA
+      onepartonlyfinal[onepartonly == 1] <- ContDf$Date1[onepartonly == 1]
+      
+      onepartonlyfinal[nchar(onepartonlyfinal) != 5] <- ""
+      
+      onepartonlyfinal <-  as.Date(as.numeric(onepartonlyfinal), origin = "1899-12-30")
+      
+      ContDf$OUT[!is.na(onepartonlyfinal)] <- as.Date(onepartonlyfinal[!is.na(onepartonlyfinal)]) 
+    }
     
-    ContDf$OUT[!is.na(YrDat)] <- as.Date(YrDat[!is.na(YrDat)])
-  }
-  
-  #############################################################################################
-  # Date is of the numeric format -> 42095 
-  # NB - five digits, 
-  #       anything more than won't be a valid date for the next 150 years ( the year 2173)
-  #       anything less than 5 digits is before 1928
-  #       therefore a five digit value is a safe number to indicate a numeric year format
-  
-  onepartonly <- rowSums(is.na(ContDf))
-  onepartonly[onepartonly != 0] <- onepartonly[onepartonly != 0] - 1 # Remove 1 for the added "OUT" column, now the entries with a 1 is numonly
-  
-  if (sum(onepartonly) > 0) {
-    onepartonlyfinal                   <- NA
-    onepartonlyfinal[onepartonly == 1] <- ContDf$Date1[onepartonly == 1]
-    
-    onepartonlyfinal[nchar(onepartonlyfinal) != 5] <- ""
-    
-    onepartonlyfinal <-  as.Date(as.numeric(onepartonlyfinal), origin = "1899-12-30")
-    
-    ContDf$OUT[!is.na(onepartonlyfinal)] <- as.Date(onepartonlyfinal[!is.na(onepartonlyfinal)]) 
   }
   
   #############################################################################################
@@ -171,7 +205,9 @@ DateConv <- function(Cont){
   # 20050109 -> 050109 or 50109
   # 01092005 -> 010905 or 10905
   # these will barely makse sense even if you try and interpret them manually
-  
+
+  ContDf$OUT[ContDf$OUT <= as.Date("1900/01/01")] <- NA
+
   return(ContDf$OUT)
   
 }
@@ -652,9 +688,18 @@ report <- function(d,modelName,title,epsilon=1.0e-2) {
 
 ######################################################################################################
 
+bimodalDistFunc <- function (n, cpct, mu1, mu2, sig1, sig2) { 
+  
+  y0 <- rnorm(n, mean = mu1, sd = sig1)
+  y1 <- rnorm(n, mean = mu2, sd = sig2)
+  
+  flag <- rbinom(n, size = 1, prob = cpct) 
+  
+  y <- y0*(1 - flag) + y1*flag 
+  
+}
 
-
-
+######################################################################################################
 
 
 
