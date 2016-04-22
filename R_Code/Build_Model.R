@@ -1,16 +1,29 @@
 
+
 # Moddeling Using GBM -----------------------------------------------------
 
-Model <- gbm.fit(y                  =  Outcome_tr,                # Dependent variable
-                 x                  =  train,                     # Dataframe with features
-                 distribution       =  "bernoulli",               # Alternative for binary outcome : "adaboost"
-                 n.trees            =  5000,                      # Keep it large - then we prune afterwards
-                 shrinkage          =  0.01,                      # The smaller, the better - tradeoff = slower
-                 interaction.depth  =  3,                         # Use the results from cross validation to choose interaction depth
-                 n.minobsinnode     =  10,                        # Effect on overfitting - decreasing this parameter increases the in-sample fit 
-                                                                  #                       - can result in overfitting
-                 nTrain             =  round(nrow(train) * 0.8),  # To select the number of trees at the end 
-                 verbose            =  TRUE)                      # Print preliminary output
+Model <- gbm.step(data               =  train,                     # The data
+                  
+                  gbm.y              =  resp,                      # Dependent variable name
+                  
+                  gbm.x              =  feats,                     # Feature names
+                  
+                  family             =  "bernoulli",               # Alternative for binary outcome : "adaboost"
+                  
+                  n.trees            =  50,                        # Keep it large - then we prune afterwards
+                  
+                  learning.rate      =  0.01,                      # The smaller, the better - tradeoff = slower
+                  
+                  tree.complexity    =  3,                         # 1: additive model, 2: two-way interactions, etc.
+                                                                   # depth 3 means each tree will evaluate three decisions;
+                                                                   #         will always yield [3 * depth + 1] nodes and [2 * depth + 1] terminal  
+                                                                   #         nodes (depth 3 = 7)  
+                                                                   #         because each decision yields 3 nodes, 
+                                                                   #         but each decision will come from a prior node
+                  
+                  max.trees          = 5000,                       # max number of trees to fit before stopping
+                  
+                  verbose            =  TRUE)                      # Print preliminary output                
 
 # To uncomment use ctrl shift c
 # # Moddeling Using XGBoost -------------------------------------------------
