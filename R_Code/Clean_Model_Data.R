@@ -6,7 +6,7 @@ DB_DAT$CLIENTFULLPOSTAL <- paste(DB_DAT$CLIENTPOSTALADDRESS1,
                                  DB_DAT$CLIENTPOSTALADDRESSPOSTALCODE,
                                  sep = " ")
 
-DB_DAT <- subset(DB_DAT, select = -c(CLIENTFIRSTNAME, CLIENTWORKTELEPHONENUMBER, CLIENTHOMETELEPHONENUMBER, CLIENTMOBILENUMBER,
+DB_DAT <- subset(DB_DAT, select = -c(CLIENTWORKTELEPHONENUMBER, CLIENTHOMETELEPHONENUMBER, CLIENTMOBILENUMBER,
                                      REGISTRATIONNUMBER, CLIENTACCOUNTHOLDERNAME, CLIENTBANKBRANCHCODE, CLIENTBANKACCNO,
                                      TRANSACTIONNUMBER, CLIENTPOSTALADDRESS1, CLIENTPOSTALADDRESS2, CLIENTPOSTALADDRESS3,
                                      CLIENTPOSTALADDRESS4, CLIENTPOSTALADDRESSPOSTALCODE))
@@ -101,7 +101,7 @@ DB_DAT$INCEPTIONDATE[is.na(DB_DAT$INCEPTIONDATE)] <- DB_DAT$LEADDATE[is.na(DB_DA
 DB_DAT$LEADDATE[is.na(DB_DAT$LEADDATE)] <- DB_DAT$FIRSTALLOCATIONDATE[is.na(DB_DAT$LEADDATE)]  
 DB_DAT$LEADDATE <- DateConv(DB_DAT$LEADDATE)
 
-# Uncomment using ctrl shift c if needed
+# # Uncomment using ctrl shift c if needed
 # # Average Sales per month by agent ----------------------------------------
 # 
 # Temp_DB <- DB_DAT
@@ -111,12 +111,16 @@ DB_DAT$LEADDATE <- DateConv(DB_DAT$LEADDATE)
 # 
 # Results <- Temp_DB %>% 
 #   group_by(ByYearMonth, ZLAGENT) %>%
-#   summarise(TotSales = sum(STATUS, na.rm = TRUE))
+#   summarise(TotSales = sum(STATUS, na.rm = TRUE),
+#             Count = n(),
+#             Pen = TotSales/Count)
 # mean(Results$TotSales)
 # 
 # ResultsTot <- Temp_DB %>% 
 #   group_by(ByYearMonth) %>%
-#   summarise(TotSales = sum(STATUS, na.rm = TRUE))
+#   summarise(TotSales = sum(STATUS, na.rm = TRUE),
+#             Count = n(),
+#             Pen = TotSales/Count)
 # mean(ResultsTot$TotSales)
 # 
 # Res2 <- Results %>% 
@@ -128,7 +132,6 @@ DB_DAT$LEADDATE <- DateConv(DB_DAT$LEADDATE)
 # rm(Temp_DB, Results, ResultsTot, Res2)
 
 #   -----------------------------------------------------------------------
-
 
 DB_DAT <- subset(DB_DAT, select = -c(FIRSTALLOCATIONDATE, LEADDATE))
 
@@ -267,6 +270,22 @@ DB_DAT$CLIENTTITLE[!(DB_DAT$CLIENTTITLE %in% c("REV", "PROF", "ADV", "DR", "MR",
 DB_DAT$CLIENTLASTNAME <- gsub(" ","", gsub("[^[:alpha:] ]", "", toupper(DB_DAT$CLIENTLASTNAME)))
 
 DB_DAT <- merge(DB_DAT, Race_Data, by.x = "CLIENTLASTNAME", by.y = "SURNAME", all.x = TRUE)
+
+colnames(DB_DAT)[colnames(DB_DAT) == "RACE"]    <- "RACE_SN"
+colnames(DB_DAT)[colnames(DB_DAT) == "CULTURE"] <- "CULTURE_SN"
+
+DB_DAT <- merge(DB_DAT, Race_Data, by.x = "CLIENTFIRSTNAME", by.y = "SURNAME", all.x = TRUE)
+
+colnames(DB_DAT)[colnames(DB_DAT) == "RACE"]    <- "RACE_FN"
+colnames(DB_DAT)[colnames(DB_DAT) == "CULTURE"] <- "CULTURE_FN"
+
+DB_DAT$RACE_SN[is.na(DB_DAT$RACE_SN)]       <- DB_DAT$RACE_FN[is.na(DB_DAT$RACE_SN)]
+DB_DAT$CULTURE_SN[is.na(DB_DAT$CULTURE_SN)] <- DB_DAT$RACE_FN[is.na(DB_DAT$CULTURE_SN)]
+
+DB_DAT <- subset(DB_DAT, select = -c(CLIENTFIRSTNAME, RACE_FN, CULTURE_FN))
+
+colnames(DB_DAT)[colnames(DB_DAT) == "RACE_SN"]    <- "RACE"
+colnames(DB_DAT)[colnames(DB_DAT) == "CULTURE_SN"] <- "CULTURE"
 
 DB_DAT$RACE[DB_DAT$RACE == ""] <- NA
 DB_DAT$CULTURE[DB_DAT$CULTURE == ""] <- NA
@@ -482,7 +501,7 @@ DB_DAT$ACCESSORIES <- str_count(DB_DAT$ACCESSORIES, ";")
 # Remove Non Model Data #
 #########################
 
-DB_DAT <- subset(DB_DAT, select = -c(CLIENTIDNUMBER, CLIENTLASTNAME))
+DB_DAT <- subset(DB_DAT, select = -CLIENTLASTNAME)
 
 ########################################################## 
 # Clean Address Info #
@@ -553,11 +572,86 @@ DB_DAT$CLIENTPOSTALADDRESSSUBURB[!(DB_DAT$CLIENTPOSTALADDRESSSUBURB %in% Keeper)
 
 rm(temp_tbl, Keeper)
 
+# Clean Lead Pickup Date and get time-to-call
 
+DB_DAT <- DB_DAT[!is.na(DB_DAT$LEADPICKUPDATE), ]
 
+DB_DAT$LEADPICKUPDATE <- DateConv(DB_DAT$LEADPICKUPDATE)
+DB_DAT$TIMETOCALL <- as.numeric(DB_DAT$LEADPICKUPDATE - DB_DAT$INCEPTIONDATE)
 
+DB_DAT <- DB_DAT[DB_DAT$TIMETOCALL >= 0, ]
 
+DB_DAT$WEEKDAY  <- weekdays(DB_DAT$LEADPICKUPDATE)
+DB_DAT$WEEKEND  <- "Weekday"
+DB_DAT$WEEKEND[DB_DAT$WEEKDAY == "Saturday" | DB_DAT$WEEKDAY == "Sunday"]  <- "Weekend"
 
+DB_DAT$WEEKTIME <- "Early"
+DB_DAT$WEEKTIME[DB_DAT$WEEKDAY == "Wednesday"]  <- "Mid"
+DB_DAT$WEEKTIME[DB_DAT$WEEKDAY == "Thursday" | DB_DAT$WEEKDAY == "Friday"]  <- "Late"
+DB_DAT$WEEKTIME[DB_DAT$WEEKDAY == "Saturday" | DB_DAT$WEEKDAY == "Sunday"]  <- "Weekend"
+
+#########################################################################
+
+EnricoURL   <- paste("http://kayaposoft.com/enrico/json/v1.0/index.php?action=getPublicHolidaysForDateRange&fromDate=01-01-2013&toDate=31-12-",
+                     format(Sys.Date(),"%Y"), 
+                     "&country=zaf&region=all",
+                     sep = "")
+Enrico_data <- fromJSON(EnricoURL)
+
+Enrico_data$date$month <- str_pad(Enrico_data$date$month, width = 2, side = "left", pad = "0")
+Enrico_data$date$day   <- str_pad(Enrico_data$date$day,   width = 2, side = "left", pad = "0")
+
+Enrico_data$Clean_Date <- as.Date(paste(Enrico_data$date$year, Enrico_data$date$month, Enrico_data$date$day, sep = "-"))
+Enrico_data$PUBHOLIDAY <- "Public_Holiday"
+
+Enrico_data <- subset(Enrico_data, select = c(Clean_Date, PUBHOLIDAY))
+
+DB_DAT <- merge(DB_DAT, Enrico_data, by.x = "LEADPICKUPDATE", by.y = "Clean_Date", all.x = TRUE)
+
+DB_DAT$PUBHOLIDAY[is.na(DB_DAT$PUBHOLIDAY)] <- "Normal_Day"
+
+rm(Enrico_data)
+
+#########################################################################
+
+# POSIX*t objects need both date and time specified
+# Here, the particular date doesn't matter - just that there is one.
+DB_DAT$TempTime <- strptime(paste("2001-01-01", DB_DAT$LEADPICKUPTIME), format = "%Y-%m-%d %H:%M")
+
+# Use round.Date to round, then format to format
+DB_DAT$LEADPICKUPTIME <- as.numeric(format(round(DB_DAT$TempTime, units = "hours"), format = "%H"))
+
+# Impute missing Lead Pickup Times - fitting distribution to observed data and simulating over unkown
+hist(DB_DAT$LEADPICKUPTIME)
+data <- DB_DAT$LEADPICKUPTIME[!is.na(DB_DAT$LEADPICKUPTIME)]
+mix_mdl <- normalmixEM(data)
+
+plot(mix_mdl, which = 2)
+
+mu1 <- mix_mdl$mu[1]
+mu2 <- mix_mdl$mu[2]
+sig1 <- mix_mdl$sigma[1]
+sig2 <- mix_mdl$sigma[2]
+cpct <- mix_mdl$lambda[1]
+
+bimodalData <- bimodalDistFunc(n = sum(is.na(DB_DAT$LEADPICKUPTIME)), cpct, mu1, mu2, sig1, sig2)
+bimodalData <- round(bimodalData)
+bimodalData[bimodalData < 5]  <- 5
+bimodalData[bimodalData > 21] <- 21
+hist(bimodalData)
+summary(bimodalData)
+
+DB_DAT$LEADPICKUPTIME[is.na(DB_DAT$LEADPICKUPTIME)] <- bimodalData
+hist(DB_DAT$LEADPICKUPTIME)
+
+#########################################################################
+
+DB_DAT$DAYTIME <- "Morning"
+DB_DAT$DAYTIME[DB_DAT$LEADPICKUPTIME %in% 12:14] <- "Lunch"
+DB_DAT$DAYTIME[DB_DAT$LEADPICKUPTIME %in% 15:18] <- "Midday"
+DB_DAT$DAYTIME[DB_DAT$LEADPICKUPTIME %in% 19:24] <- "Night"
+
+DB_DAT <- subset(DB_DAT, select = -TempTime)
 
 
 
