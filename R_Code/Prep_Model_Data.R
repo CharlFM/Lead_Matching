@@ -2,11 +2,18 @@
 
 DB_DAT$random <- runif(nrow(DB_DAT))
 
-train <- DB_DAT[DB_DAT$random <= 0.7, ] 
-test  <- DB_DAT[DB_DAT$random >  0.7, ] 
+DB_DAT <- subset(DB_DAT, select = -c(CLIENTIDNUMBER, 
+                                     LEADPICKUPDATE, INCEPTIONDATE, CLIENTBIRTHDATE, 
+                                     CLIENTBANKNAME, CLIENTBANKACCOUNTTYPE, CLIENTBANKBRANCH))
 
-train <- subset(train, select = -c(random, INCEPTIONDATE, CLIENTBIRTHDATE, CLIENTBANKNAME, CLIENTBANKACCOUNTTYPE, CLIENTBANKBRANCH))
-test  <- subset(test,  select = -c(random, INCEPTIONDATE, CLIENTBIRTHDATE, CLIENTBANKNAME, CLIENTBANKACCOUNTTYPE, CLIENTBANKBRANCH))
+# Remove columns with duplicated values (pointless to add these in the model)
+DB_DAT <- DB_DAT[sapply(DB_DAT, function(x) length(unique(x)) > 1)]
+
+train <- DB_DAT[DB_DAT$random <= 0.7, ] # 1 if satisfied with model
+test  <- DB_DAT[DB_DAT$random >  0.7, ] # 1 if satisfied with model
+
+train <- subset(train, select = -random)
+test  <- subset(test,  select = -random)
 
 response.names <- "STATUS"
 
@@ -26,11 +33,14 @@ for (f in feature.names) {
   }
 }
 
-Outcome_tr <- train$STATUS
-train <- subset(train, select = -STATUS)
-Outcome_te <- test$STATUS
-test <- subset(test, select = -STATUS)
+resp  <- which(names(train) %in% response.names)
+feats <- seq(1:ncol(train))
+feats <- feats[feats != resp]
 
+# Outcome_tr <- train$STATUS
+# train <- subset(train, select = -STATUS)
+# Outcome_te <- test$STATUS
+# test <- subset(test, select = -STATUS)
 
 # To uncomment use ctrl shift c
 # # Prep Data XGBoost -----------------------------------------------------------------
