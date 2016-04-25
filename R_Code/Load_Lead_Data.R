@@ -125,6 +125,11 @@ SIG_DAT$TRANSACTIONNUMBER <- paste("SIG", as.character(as.Date(fileXLSDate)), se
 SIG_DAT$SOURCE         <-  "SIGNIO"
 SIG_DAT$CLIENTCATEGORY <-  "PRIVATE"
 
+SIG_DAT$CREDITLIFE <- gsub(" ","", gsub("[^[:alnum:] ]", "", gsub("X.","", toupper(SIG_DAT$CREDITLIFE))))
+
+SIG_DAT$TAKEN                               <-  0
+SIG_DAT$TAKEN[SIG_DAT$CREDITLIFE == "YES"]  <-  1
+
 # Load and clean All other data -------------------------------------------
 
 # Load data
@@ -181,13 +186,14 @@ for(leadfile in 1:num_lead_file){
 } 
 
 # Cleans Data
-
-All_lead_Data$SOURCE <- "SIRITI"
-
 All_lead_Data$CLIENTWORKTELEPHONENUMBER <- paste(All_lead_Data$CLIENTWORKTELEPHONECODE, All_lead_Data$CLIENTWORKTELEPHONENUMBER, sep = "")
 All_lead_Data$CLIENTWORKTELEPHONENUMBER <- gsub("NA", "", All_lead_Data$CLIENTWORKTELEPHONENUMBER)
 All_lead_Data$CLIENTHOMETELEPHONENUMBER <- paste(All_lead_Data$CLIENTHOMETELEPHONECODE, All_lead_Data$CLIENTHOMETELEPHONENUMBER, sep = "")
 All_lead_Data$CLIENTHOMETELEPHONENUMBER <- gsub("NA", "", All_lead_Data$CLIENTHOMETELEPHONENUMBER)
+All_lead_Data$BRANCHFAXNUMBER <- paste(All_lead_Data$BRANCHFAXCODE, All_lead_Data$BRANCHFAXNUMBER, sep = "")
+All_lead_Data$BRANCHFAXNUMBER <- gsub("NA", "", All_lead_Data$BRANCHFAXNUMBER)
+All_lead_Data$BRANCHTELEPHONENUMBER <- paste(All_lead_Data$BRANCHTELEPHONECODE, All_lead_Data$BRANCHTELEPHONENUMBER, sep = "")
+All_lead_Data$BRANCHTELEPHONENUMBER <- gsub("NA", "", All_lead_Data$BRANCHTELEPHONENUMBER)
 
 SIR_Names <- readWorksheet(loadWorkbook(paste(Path, "/Data/Lead_Col_Names/SIRITI.xlsx", sep = "")), 
                            sheet = 1)
@@ -204,13 +210,15 @@ All_lead_Data <- smartbind(All_lead_Data, SIG_DAT, BAR_DAT)
 
 All_lead_Data <- All_lead_Data[!is.na(All_lead_Data$TRANSACTIONNUMBER), ]
 
-write.csv(All_lead_Data, "Data_Out.csv")
-
-# Clean up
-
 rm(lead_File_List, num_lead_file, sig, bar, SIG_DAT, BAR_DAT, BAR_Names, SIG_Names, clID, n, l,
    postadr, postadr2, postadr3, codepos, Pos_Code, resadr, res_Pos_Code, posadr, pos_Pos_Code, remove, counter,
    num_lead_file, lead_File_List, fileXLSDate, common_cols, file_name, leadfile, lead_Data, SIR_Names)
+
+# Cleans All Data
+source(paste(Path, "/R_Code/CleanUp.R", sep = "")) 
+
+write.csv(All_lead_Data, "Data_Out.csv")
+
 
 
 

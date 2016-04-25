@@ -274,6 +274,8 @@ DB_DAT <- merge(DB_DAT, Race_Data, by.x = "CLIENTLASTNAME", by.y = "SURNAME", al
 colnames(DB_DAT)[colnames(DB_DAT) == "RACE"]    <- "RACE_SN"
 colnames(DB_DAT)[colnames(DB_DAT) == "CULTURE"] <- "CULTURE_SN"
 
+DB_DAT$CLIENTFIRSTNAME <- gsub(" ","", gsub("[^[:alpha:] ]", "", toupper(DB_DAT$CLIENTFIRSTNAME)))
+
 DB_DAT <- merge(DB_DAT, Race_Data, by.x = "CLIENTFIRSTNAME", by.y = "SURNAME", all.x = TRUE)
 
 colnames(DB_DAT)[colnames(DB_DAT) == "RACE"]    <- "RACE_FN"
