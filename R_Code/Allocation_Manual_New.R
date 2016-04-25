@@ -6,7 +6,7 @@ source(paste(Path, "/R_Code/Load_Other_Data.R", sep = ""))
 
 # Load current model
 load(paste(getwd(), "/Active_Model.RData", sep = ""))
-ntrees <- gbm.perf(Model)
+ntrees <- max(Model$trees.fitted)
 # Loads manual allocation Data
 DB_Names <- read_excel(paste(Path, "/Data/Lead_Col_Names/DBNAMES.xlsx", sep = ""),
                        sheet = 1,
@@ -93,7 +93,7 @@ ManLead_Dat$LEADDATE <- DateConv(ManLead_Dat$LEADDATE)
 # rm(Temp_DB, Results, ResultsTot, Res2)
 # Continue Cleaning -------------------------------------------------------
 
-ManLead_Dat <- subset(ManLead_Dat, select = -c(FIRSTALLOCATIONDATE, LEADDATE))
+ManLead_Dat <- subset(ManLead_Dat, select = -c(LEADDATE))
 
 #
 
@@ -356,11 +356,16 @@ ManLead_Dat$BRANCHNAME[!(ManLead_Dat$BRANCHNAME %in% DB_Bn)] <- "OTHER"
 
 rm(DB_Bn, DB_Sp)
 
+# Fix time to call
+ManLead_Dat$TIMETOCALL     <- as.numeric(as.Date(Sys.Date()) - ManLead_Dat$INCEPTIONDATE)
+
+ManLead_Dat <- subset(ManLead_Dat, select = -c(INCEPTIONDATE, FIRSTALLOCATIONDATE))
+
 #
 # Clean All Numeric Variables 
 #
 
-Options <- c("FINANCETERM", "VEHICLEVALUE", "DEPOSITVALUE", "RESIDUALVALUE", "FINANCEAMOUNT", "ODOMETERREADING")
+Options <- c("FINANCETERM", "VEHICLEVALUE", "DEPOSITVALUE", "RESIDUALVALUE", "FINANCEAMOUNT", "ODOMETERREADING", "TIMETOCALL")
 
 for (opt in Options) {
   ManLead_Dat[[opt]]                             <-  as.numeric(ManLead_Dat[[opt]])
@@ -533,7 +538,7 @@ ManLead_Dat$CLIENTPOSTALADDRESSSUBURB[!(ManLead_Dat$CLIENTPOSTALADDRESSSUBURB %i
 
 rm(DB_City, DB_PSub, DB_PCode)
 
-ManLead_Dat  <- subset(ManLead_Dat,  select = -c(INCEPTIONDATE, CLIENTBIRTHDATE, CLIENTBANKNAME, CLIENTBANKACCOUNTTYPE, CLIENTBANKBRANCH))
+ManLead_Dat  <- subset(ManLead_Dat,  select = -c(CLIENTBIRTHDATE, CLIENTBANKNAME, CLIENTBANKACCOUNTTYPE, CLIENTBANKBRANCH))
 
 ManLead_Dat$AFFINITY <- gsub(" ", "", gsub("[^[:alpha:] ]", "", toupper(ManLead_Dat$AFFINITY)))
 
@@ -556,13 +561,12 @@ for (f in feature.names) {
 
 ManLead_Dat$AFFINITY <- as.character(ManLead_Dat$AFFINITY)
 
-ManLead_Dat$LEADPICKUPTIME <-  NA
-ManLead_Dat$TIMETOCALL     <-  NA
-ManLead_Dat$WEEKDAY        <-  NA
-ManLead_Dat$WEEKEND        <-  NA
-ManLead_Dat$WEEKTIME       <-  NA
-ManLead_Dat$PUBHOLIDAY     <-  NA
-ManLead_Dat$DAYTIME        <-  NA
+ManLead_Dat$LEADPICKUPTIME <-  12
+ManLead_Dat$WEEKDAY        <-  "Monday"
+ManLead_Dat$WEEKEND        <-  "Weekday"
+ManLead_Dat$WEEKTIME       <-  "Early"
+ManLead_Dat$PUBHOLIDAY     <-  "Normal_Day"
+ManLead_Dat$DAYTIME        <-  "Lunch"
 
 names(ManLead_Dat)[!(names(ManLead_Dat) %in% Model$var.names)]
 Model$var.names[!(Model$var.names %in% names(ManLead_Dat))]
@@ -577,6 +581,7 @@ Allocation_Dat$Aff1[grepl("BARLOW", Allocation_Dat$Aff1)] <- "BARLOWORLD"
 Allocation_Dat$Aff2[grepl("BARLOW", Allocation_Dat$Aff2)] <- "BARLOWORLD"
 
 Allocation_Dat$BARLOW[is.na(Allocation_Dat$BARLOW)] <- 0
+Allocation_Dat$OTHERALLO[is.na(Allocation_Dat$OTHERALLO)] <- 0
 
 Allocation_Dat$ZLAGENT <- gsub(" ", "", gsub("[^[:alpha:] ]", "", toupper(Allocation_Dat$ZWINGMASTER)))
 
@@ -592,9 +597,11 @@ for (aff in Affins) {
   
   if (grepl("BARLOW", aff)) {
     Allocation_Dat[[aff]] <- Allocation_Dat$BARLOW
+  } else if (grepl("OTHER", aff)) {
+    Allocation_Dat[[aff]] <- Allocation_Dat$OTHERALLO
   } else {
-    Allocation_Dat[[aff]][Allocation_Dat$Aff1 %in% aff] <- Allocation_Dat$TOTALLEADS[Allocation_Dat$Aff1 %in% aff] - Allocation_Dat$BARLOW[Allocation_Dat$Aff1 %in% aff]
-    Allocation_Dat[[aff]][Allocation_Dat$Aff2 %in% aff] <- Allocation_Dat$TOTALLEADS[Allocation_Dat$Aff1 %in% aff] - Allocation_Dat$BARLOW[Allocation_Dat$Aff1 %in% aff]
+    Allocation_Dat[[aff]][Allocation_Dat$Aff1 %in% aff] <- Allocation_Dat$TOTALLEADS[Allocation_Dat$Aff1 %in% aff] - Allocation_Dat$BARLOW[Allocation_Dat$Aff1 %in% aff] - Allocation_Dat$OTHERALLO[Allocation_Dat$Aff1 %in% aff]
+    Allocation_Dat[[aff]][Allocation_Dat$Aff2 %in% aff] <- Allocation_Dat$TOTALLEADS[Allocation_Dat$Aff1 %in% aff] - Allocation_Dat$BARLOW[Allocation_Dat$Aff1 %in% aff] - Allocation_Dat$OTHERALLO[Allocation_Dat$Aff1 %in% aff]
   }
   
 }
@@ -602,7 +609,6 @@ for (aff in Affins) {
 LeadOut <- data.frame(ZLAGENT = as.character(),
                       Pred    = as.numeric(),
                       ID      = as.integer())
-
 
 for (aff in Affins) {
   
