@@ -1,4 +1,3 @@
-
 # Load Data ---------------------------------------------------------------
 
 # Load current model
@@ -19,8 +18,8 @@ DB_Names <- read_excel(paste(Path, "/Data/Lead_Col_Names/DBNAMES.xlsx", sep = ""
 query <- paste("SELECT * ",
                "FROM AccessLife_Sales_File_Lead_Data ",
                "WHERE `Status` = 'Allocated' AND ",
-                      "`First Allocation Date` BETWEEN '", as.Date(Sys.Date()) - months(7), "' AND '", as.Date(Sys.Date()) - months(1),"' AND ",
-                      "`UW Status` IS NULL AND `QA Status` IS NULL",
+               "`First Allocation Date` BETWEEN '", as.Date(Sys.Date()) - months(7), "' AND '", as.Date(Sys.Date()) - months(1),"' AND ",
+               "`UW Status` IS NULL AND `QA Status` IS NULL AND Affinity <> 'Auto Pedigree' AND ZwingMaster <> 'Douglas Gwanyanya'",
                sep = "")
 
 ManLead_Dat <- dbGetQuery(mydb, query)
@@ -592,10 +591,8 @@ LeadOut <- data.frame(ZLAGENT = as.character(),
                       Pred    = as.numeric(),
                       ID      = as.integer())
 
-allocated <- nrow(ManLead_Dat)
-Counter <- 0
-
-
+allocated  <- nrow(ManLead_Dat)
+Counter    <- 0
 SubsetData <- ManLead_Dat
 
 while (allocated > Counter) {
@@ -610,7 +607,7 @@ while (allocated > Counter) {
     SubsetData$Pred <- Preds
     
     SubsetData <- SubsetData %>%
-                    arrange(desc(Pred))
+      arrange(desc(Pred))
     
     MaxID <- SubsetData$ID[1:5]
     
@@ -647,10 +644,12 @@ today <- as.character(Sys.Date())
 for (i in 1:nrow(ManLead_Dat2)) {
   
   updateQuery <- paste("UPDATE AccessLife_Sales_File_Lead_Data ",
-                       "SET Zwingmaster = '", ManLead_Dat2$ZLAGENT[i],"', `Lead Date` = '",today ,"' ",
+                       "SET ZwingMaster = '", ManLead_Dat2$ZLAGENT[i],"', `Lead Date` = '",today ,"' ",
                        "WHERE AutoNumber = '", ManLead_Dat2$LEADNUMBER[i], "'",
                        sep = "")
-  dbSendQuery(mydb, query)
+  dbSendQuery(mydb, updateQuery)
+  
+  print(i)
   
 }
 
@@ -675,6 +674,7 @@ for (i in 1:nrow(ManLead_Dat2)) {
 #                  n.trees = ntrees,
 #                  type = "response")
 # SubsetData$Pred <- Preds
+
 
 
 
