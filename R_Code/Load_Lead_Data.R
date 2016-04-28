@@ -1,4 +1,14 @@
 
+# Initialize -------------------------------------------------------------
+
+# Clears Memory
+rm(list = ls())
+gc()
+
+Path <- getwd()
+
+source(paste(Path, "/R_Code/Initialize.R", sep = ""))
+
 # Loads some additional data (Race/City/...) ------------------------------
 
 source(paste(Path, "/R_Code/Load_Other_Data.R", sep = ""))
