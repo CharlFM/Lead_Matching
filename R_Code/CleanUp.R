@@ -20,6 +20,8 @@ for (i in 1:ncol(YearDf)) {
   
 }
 
+All_lead_Data$FIRSTREGISTRATIONYEAR <- as.numeric(yyFin)
+
 # Clean Dates -------------------------------------------------------------
 
 DateFields <- c("INCEPTIONDATE", "CLIENTBIRTHDATE", "COMMENCEMENTDATE", "EXPIRYDATE", "FIRSTDEBITDATE")
@@ -62,6 +64,9 @@ All_lead_Data$CLIENTTITLE[grepl("REV", All_lead_Data$CLIENTTITLE)]     <-  "REV"
 All_lead_Data$CLIENTTITLE[grepl("PROF", All_lead_Data$CLIENTTITLE)]    <-  "PROF"
 All_lead_Data$CLIENTTITLE[grepl("ADV", All_lead_Data$CLIENTTITLE)]     <-  "ADV"
 All_lead_Data$CLIENTTITLE[grepl("DOCTOR", All_lead_Data$CLIENTTITLE)]  <-  "DR"
+All_lead_Data$CLIENTTITLE[grepl("MNR", All_lead_Data$CLIENTTITLE)]     <-  "MR"
+All_lead_Data$CLIENTTITLE[grepl("MEV", All_lead_Data$CLIENTTITLE)]     <-  "MRS"
+All_lead_Data$CLIENTTITLE[grepl("MEJ", All_lead_Data$CLIENTTITLE)]     <-  "MISS"
 
 All_lead_Data$CLIENTTITLE[!(All_lead_Data$CLIENTTITLE %in% c("REV", "PROF", "ADV", "DR", "MR", "MRS", "MS", "MISS"))]  <- NA
 
@@ -161,7 +166,6 @@ All_lead_Data$CLIENTGENDER[is.na(All_lead_Data$CLIENTGENDER)] <- Orig_Gen[is.na(
 
 rm(YY, MM, DD, G, SSS, C, A, Z, LuhnVal, 
    ValidOnCount, ValidOnMost, ValidOnAll, 
-   Cur_Year, 
    Orig_B_Days, B_Days, 
    Odd_Sum, Even_Sum,
    Gender, Orig_Gen)
@@ -179,8 +183,11 @@ ContactFields <- c("BRANCHTELEPHONENUMBER", "BRANCHFAXNUMBER",
                    "BMWORKTELEPHONE", "BMMOBILENUMBER")
 
 for (f in ContactFields) {
-  All_lead_Data[[f]] <- gsub("\\(|\\)", "", gsub(" ", "", gsub("[^[0-9] ]", "", All_lead_Data[[f]])))
-  All_lead_Data[[f]][!is.na(All_lead_Data[[f]])] <- paste("0", substrRight(All_lead_Data[[f]][!is.na(All_lead_Data[[f]])], 9), sep = "")
+  All_lead_Data[[f]] <- as.numeric(gsub("[^0-9]", "", All_lead_Data[[f]]))
+  All_lead_Data[[f]][!is.na(All_lead_Data[[f]]) & as.numeric(substr(All_lead_Data[[f]], 1, 2)) == 27] <- 
+    substrRight(All_lead_Data[[f]][!is.na(All_lead_Data[[f]]) & as.numeric(substr(All_lead_Data[[f]], 1, 2)) == 27], 9)
+  #  All_lead_Data[[f]][!is.na(All_lead_Data[[f]])] <- paste("0", substrRight(All_lead_Data[[f]][!is.na(All_lead_Data[[f]])], 9), sep = "")
+  All_lead_Data[[f]][All_lead_Data[[f]] == 0] <- NA
 }
 
 # Clean Taken - Barlow ----------------------------------------------------
@@ -202,8 +209,12 @@ NumFields <- c("BRANCHPOADDRESSPOSTCODE", "BRANCHRESIDENTIALADDRESSPOSTCODE",
                "ADMINFEE", "BINDERFEE", "DEALERDOCUMENTATIONFEE", "VALUATIONFEE", "SUPPLIERRECOVERY", "TAKEN", "CLIENTAGE")
 
 for (f in NumFields) {
-  All_lead_Data[[f]] <- as.numeric(All_lead_Data[[f]])
+  All_lead_Data[[f]] <- gsub(",", ".",  All_lead_Data[[f]], fixed = TRUE)
+  All_lead_Data[[f]] <- gsub("[^[:^punct:].]", "", All_lead_Data[[f]], perl = TRUE)
+  All_lead_Data[[f]] <- as.numeric(gsub("[[:alpha:]]", "", All_lead_Data[[f]]))
 }
+
+
 
 # Consent -----------------------------------------------------------------
 
@@ -222,8 +233,8 @@ rm(ConsentFields)
 CharFields <- colnames(All_lead_Data)[!(colnames(All_lead_Data) %in% c(DateFields, NumFields))]
 
 for (f in CharFields) {
-  All_lead_Data[[f]] <- trim(All_lead_Data[[f]])
-  All_lead_Data[[f]] <- gsub("(?<=\\b)([a-z])", "\\U\\1", tolower(All_lead_Data[[f]]), perl = TRUE)
+  All_lead_Data[[f]] <- as.character(trim(All_lead_Data[[f]]))
+  All_lead_Data[[f]] <- gsub("(?<=\\b)([a-z])", "\\U\\1", tolower(All_lead_Data[[f]]), perl = TRUE) # Proper case
 }
 
 # To Upper
@@ -248,6 +259,35 @@ MakeLower <- c("CLIENTEMAILADDRESS", "BMEMAILADDRESS")
 for (f in MakeLower) {
   All_lead_Data[[f]] <- tolower(All_lead_Data[[f]])
 }
+
+# Fix First Reg Year and New/Used -----------------------------------------
+
+All_lead_Data$NEWUSED[is.na(All_lead_Data$NEWUSED)] <- ifelse(All_lead_Data$ODOMETERREADING[is.na(All_lead_Data$NEWUSED)] < 100,
+                                                              "New",
+                                                              "Used")
+
+All_lead_Data$NEWUSED[is.na(All_lead_Data$NEWUSED) & 
+                        as.numeric(All_lead_Data$FIRSTREGISTRATIONYEAR) < as.numeric(format(Sys.Date(), "%Y"))] <- "Used" 
+
+All_lead_Data$FIRSTREGISTRATIONYEAR[is.na(All_lead_Data$FIRSTREGISTRATIONYEAR) & 
+                                      All_lead_Data$ODOMETERREADING < 100] <- ifelse(as.numeric(format(Sys.Date(), "%m")) == 12, 
+                                                                                     as.numeric(format(Sys.Date(), "%Y")) + 1,
+                                                                                     format(Sys.Date(), "%Y")) 
+
+All_lead_Data$FIRSTREGISTRATIONYEAR <- as.numeric(All_lead_Data$FIRSTREGISTRATIONYEAR)
+
+
+# Fix Vinnumber where missing ---------------------------------------------
+
+All_lead_Data$VINNUMBER <- gsub(" ", "", All_lead_Data$VINNUMBER)
+All_lead_Data$VINNUMBER[is.na(All_lead_Data$VINNUMBER) | All_lead_Data$VINNUMBER == ""] <- paste(All_lead_Data$CLIENTIDNUMBER, 
+                                                                                                 All_lead_Data$MANUFACTURER, 
+                                                                                                 All_lead_Data$MODEL, 
+                                                                                                 All_lead_Data$FIRSTREGISTRATIONYEAR)
+
+
+
+
 
 
 
