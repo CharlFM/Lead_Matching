@@ -9,6 +9,8 @@ source(paste(Path, "/R_Code/Load_Other_Data.R", sep = ""))
 # Opens DB
 source(paste(Path, "/R_Code/OpenDB.R", sep = ""))
 
+today <- as.character(Sys.Date())
+
 ntrees <- max(Model$trees.fitted)
 # Loads manual allocation Data
 DB_Names <- read_excel(paste(Path, "/Data/Lead_Col_Names/DBNAMES.xlsx", sep = ""),
@@ -17,9 +19,10 @@ DB_Names <- read_excel(paste(Path, "/Data/Lead_Col_Names/DBNAMES.xlsx", sep = ""
 
 query <- paste("SELECT * ",
                "FROM AccessLife_Sales_File_Lead_Data ",
-               "WHERE `Status` = 'Allocated' AND ",
-               "`First Allocation Date` BETWEEN '", as.Date(Sys.Date()) - months(7), "' AND '", as.Date(Sys.Date()) - months(1),"' AND ",
-               "`UW Status` IS NULL AND `QA Status` IS NULL AND Affinity <> 'Auto Pedigree' AND ZwingMaster <> 'Douglas Gwanyanya'",
+               "WHERE `Status` = 'Allocated' ",
+               "AND `First Allocation Date` BETWEEN '", as.Date(Sys.Date()) - months(7), "' AND '", as.Date(Sys.Date()) - months(1),"' ",
+               "AND `Lead Date` <> '",today ,"' ",
+               "AND `UW Status` IS NULL AND `QA Status` IS NULL AND Affinity <> 'Auto Pedigree' AND ZwingMaster <> 'Douglas Gwanyanya'",
                sep = "")
 
 ManLead_Dat <- dbGetQuery(mydb, query)
@@ -571,8 +574,10 @@ for (f in feature.names) {
 
 ManLead_Dat$AFFINITY <- as.character(ManLead_Dat$AFFINITY)
 
+# Manual Update part ------------------------------------------------------
+
 ManLead_Dat$LEADPICKUPTIME <-  12
-ManLead_Dat$WEEKDAY        <-  "Friday"
+ManLead_Dat$WEEKDAY        <-  "Thursday"
 ManLead_Dat$WEEKEND        <-  "Weekday"
 ManLead_Dat$WEEKTIME       <-  "Late"
 ManLead_Dat$PUBHOLIDAY     <-  "Normal_Day"
@@ -609,7 +614,7 @@ while (allocated > Counter) {
     SubsetData <- SubsetData %>%
       arrange(desc(Pred))
     
-    MaxID <- SubsetData$ID[1:5]
+    MaxID <- SubsetData$ID[1:1]
     
     UpdateR <- data.frame(ZLAGENT = Agents_List$ZWINGMASTER[which(Agents_List$ZM %in% agent)],
                           Pred    = SubsetData$Pred[SubsetData$ID == MaxID],
@@ -619,12 +624,7 @@ while (allocated > Counter) {
     
     SubsetData <- SubsetData[SubsetData$ID != MaxID, ]
     
-    Allocation_Dat[[aff]][Allocation_Dat$ZLAGENT == agent] <- Allocation_Dat[[aff]][Allocation_Dat$ZLAGENT == agent] - 1
-    
-    # Remove agent if maxed allocation reached
-    Agents <- Allocation_Dat$ZLAGENT[Allocation_Dat[[aff]] != 0]
-    
-    Counter <- Counter + 5 
+    Counter <- Counter + 1
     
     print(paste(Counter, "of", allocated))
     
@@ -632,14 +632,13 @@ while (allocated > Counter) {
   
 }
 
-
 ManLead_Dat2 <- merge(ManLead_Dat_Orig, LeadOut, by.x = "ID", by.y = "ID")
 
 ManLead_Dat2 <- subset(ManLead_Dat2, select = -ZLAGENT.x)
 
 colnames(ManLead_Dat2)[colnames(ManLead_Dat2) == "ZLAGENT.y"] <- "ZLAGENT"
 
-today <- as.character(Sys.Date())
+# Update DB ---------------------------------------------------------------
 
 for (i in 1:nrow(ManLead_Dat2)) {
   
@@ -654,7 +653,7 @@ for (i in 1:nrow(ManLead_Dat2)) {
 }
 
 
-
+# Old Code ----------------------------------------------------------------
 # OUT <- ManLead_Dat2 %>% group_by(AFFINITY, ZLAGENT) %>% summarise(n = n())
 # 
 # write.csv(ManLead_Dat2, "Results.csv")
