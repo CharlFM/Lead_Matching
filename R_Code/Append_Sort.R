@@ -1,353 +1,367 @@
-# Clean adress names
-All_lap_Data$POSTALADDRESS1 <- gsub(" ", "", gsub("[^[:alnum:] ]", "", toupper(All_lap_Data$POSTALADDRESS1)))
-All_lap_Data$POSTALADDRESS2 <- gsub(" ", "", gsub("[^[:alnum:] ]", "", toupper(All_lap_Data$POSTALADDRESS2)))
-All_lap_Data$POSTALADDRESS3 <- gsub(" ", "", gsub("[^[:alnum:] ]", "", toupper(All_lap_Data$POSTALADDRESS3)))
+# Adds some variables -----------------------------------------------------
+# Lead Pickup Day and Time
+newLead_Dat$LEADPICKUPTIME <- as.numeric(format(round(Sys.time(), units = "hours"), format = "%H"))
 
-# Clean province info
-Provinces <- c("WESTERNCAPE", "LIMPOPO", "MPUMALANGA", "GAUTENG", "EASTERNCAPE", "KWAZULUNATAL", "NORTHERNCAPE", "FREESTATE", "NORTHWEST")
+newLead_Dat$DAYTIME <- "Morning"
+newLead_Dat$DAYTIME[newLead_Dat$LEADPICKUPTIME %in% 12:14] <- "Lunch"
+newLead_Dat$DAYTIME[newLead_Dat$LEADPICKUPTIME %in% 15:18] <- "Midday"
+newLead_Dat$DAYTIME[newLead_Dat$LEADPICKUPTIME %in% 19:24] <- "Night"
 
-# Select given province info
-All_lap_Data$PROVINCE <- ""
-All_lap_Data$PROVINCE[All_lap_Data$POSTALADDRESS3 %in% Provinces] <- All_lap_Data$POSTALADDRESS3[All_lap_Data$POSTALADDRESS3 %in% Provinces]
-All_lap_Data$PROVINCE[All_lap_Data$POSTALADDRESS2 %in% Provinces] <- All_lap_Data$POSTALADDRESS2[All_lap_Data$POSTALADDRESS2 %in% Provinces]
-All_lap_Data$PROVINCE[All_lap_Data$POSTALADDRESS1 %in% Provinces] <- All_lap_Data$POSTALADDRESS1[All_lap_Data$POSTALADDRESS1 %in% Provinces]
+newLead_Dat$WEEKDAY  <- weekdays(Sys.Date())
+newLead_Dat$WEEKEND  <- "Weekday"
+newLead_Dat$WEEKEND[newLead_Dat$WEEKDAY == "Saturday" | newLead_Dat$WEEKDAY == "Sunday"]  <- "Weekend"
 
-# Merge City info with each of the postal adressess and complete where missing
-All_lap_Data <- merge(All_lap_Data, City_Data, by.x = "POSTALADDRESS1", by.y = "CITY", all.x = TRUE)
-All_lap_Data$PROVINCENAME[is.na(All_lap_Data$PROVINCENAME)] <- ""
-All_lap_Data$PROVINCE[All_lap_Data$PROVINCE == ""] <- All_lap_Data$PROVINCENAME[All_lap_Data$PROVINCE == ""]
-All_lap_Data <- subset(All_lap_Data, select = -PROVINCENAME)
+newLead_Dat$WEEKTIME <- "Early"
+newLead_Dat$WEEKTIME[newLead_Dat$WEEKDAY == "Wednesday"]  <- "Mid"
+newLead_Dat$WEEKTIME[newLead_Dat$WEEKDAY == "Thursday" | newLead_Dat$WEEKDAY == "Friday"]  <- "Late"
+newLead_Dat$WEEKTIME[newLead_Dat$WEEKDAY == "Saturday" | newLead_Dat$WEEKDAY == "Sunday"]  <- "Weekend"
 
-All_lap_Data <- merge(All_lap_Data, City_Data, by.x = "POSTALADDRESS2", by.y = "CITY", all.x = TRUE)
-All_lap_Data$PROVINCENAME[is.na(All_lap_Data$PROVINCENAME)] <- ""
-All_lap_Data$PROVINCE[All_lap_Data$PROVINCE == ""] <- All_lap_Data$PROVINCENAME[All_lap_Data$PROVINCE == ""]
-All_lap_Data <- subset(All_lap_Data, select = -PROVINCENAME)
+EnricoURL   <- paste("http://kayaposoft.com/enrico/json/v1.0/index.php?action=getPublicHolidaysForDateRange&fromDate=01-01-2013&toDate=31-12-",
+                     format(Sys.Date(),"%Y"), 
+                     "&country=zaf&region=all",
+                     sep = "")
+Enrico_data <- fromJSON(EnricoURL)
 
-All_lap_Data <- merge(All_lap_Data, City_Data, by.x = "POSTALADDRESS3", by.y = "CITY", all.x = TRUE)
-All_lap_Data$PROVINCENAME[is.na(All_lap_Data$PROVINCENAME)] <- ""
-All_lap_Data$PROVINCE[All_lap_Data$PROVINCE == ""] <- All_lap_Data$PROVINCENAME[All_lap_Data$PROVINCE == ""]
-All_lap_Data <- subset(All_lap_Data, select = -PROVINCENAME)
+Enrico_data$date$month <- str_pad(Enrico_data$date$month, width = 2, side = "left", pad = "0")
+Enrico_data$date$day   <- str_pad(Enrico_data$date$day,   width = 2, side = "left", pad = "0")
 
-rm(Provinces, City_Data)
+Enrico_data$Clean_Date <- as.Date(paste(Enrico_data$date$year, Enrico_data$date$month, Enrico_data$date$day, sep = "-"))
+Enrico_data$PUBHOLIDAY <- "Public_Holiday"
 
-#####################################################################################################
-# Determine Duration #
-######################
+Enrico_data <- subset(Enrico_data, select = c(Clean_Date, PUBHOLIDAY))
 
-fileXLSDate <- file.mtime(paste(Path, "/Data/AssetLife Data/", lap_File_List[lapfile], sep = ""))
-
-All_lap_Data$COMMENCEMENTDATEOFPOLICY <- DateConv(All_lap_Data$COMMENCEMENTDATEOFPOLICY)
-All_lap_Data$COMMENCEMENTDATEOFPOLICY <- firstDayMonth(All_lap_Data$COMMENCEMENTDATEOFPOLICY)
-All_lap_Data$STATUSEFFECTIVEENDDATE   <- DateConv(All_lap_Data$STATUSEFFECTIVEENDDATE)
-
-All_lap_Data$STATUSEFFECTIVEENDDATE <- as.Date(ifelse(All_lap_Data$STATUSEFFECTIVEENDDATE < All_lap_Data$COMMENCEMENTDATEOFPOLICY, 
-                                               All_lap_Data$COMMENCEMENTDATEOFPOLICY, 
-                                               All_lap_Data$STATUSEFFECTIVEENDDATE))
-
-# If there is an end date and the number of collected premiums equals 0, then force the end date to equal start date
-All_lap_Data$STATUSEFFECTIVEENDDATE[!is.na(All_lap_Data$STATUSEFFECTIVEENDDATE) & 
-                                      All_lap_Data$TOTALAMOUNTPAIDSINCEINCEPTIONTOCURRENTMONTH == 0] <- 
-  All_lap_Data$COMMENCEMENTDATEOFPOLICY[!is.na(All_lap_Data$STATUSEFFECTIVEENDDATE) & 
-                                        All_lap_Data$TOTALAMOUNTPAIDSINCEINCEPTIONTOCURRENTMONTH == 0]
-  
-All_lap_Data$DURATION                               <-  as.numeric(((All_lap_Data$STATUSEFFECTIVEENDDATE - 
-                                                                       All_lap_Data$COMMENCEMENTDATEOFPOLICY) / 365.25) * 12)
-All_lap_Data$DURATION[is.na(All_lap_Data$DURATION)] <-  as.numeric(((as.Date(substr(fileXLSDate, 1, 10)) - 
-                                                                       All_lap_Data$COMMENCEMENTDATEOFPOLICY[is.na(All_lap_Data$DURATION)]) / 365.25) * 12)
-
-rm(lap_File_List, lapfile)
-
-#####################################################################################################
-# Determine Status #
-####################
-
-# If there is end date = Lapse, else Active ( or 1, 0)
-All_lap_Data$STATUS[!is.na(All_lap_Data$STATUSEFFECTIVEENDDATE)] <- "LAP"    
-All_lap_Data$STATUS[is.na(All_lap_Data$STATUSEFFECTIVEENDDATE)]  <- "ACT"
-
-# Set threshold of lapse duration (we are conserned with reducing lapses in months 0 - 5)
-All_lap_Data$STATUS[All_lap_Data$DURATION > 6 & All_lap_Data$STATUS == "LAP"]  <- "ACT"
-
-#  To distinguish between NTU's and LAP include the following line
-# All_lap_Data$STATUS[All_lap_Data$DURATION == 0 & All_lap_Data$STATUS == "LAP"]  <- "NTU"
-
-#####################################################################################################
-# Weight Cleaning #
-###################
-
-# Rename
-colnames(All_lap_Data)[which(names(All_lap_Data) == "WEIGHT130KGSORWEIGHTOLDPOLICIES")] <- "WEIGHT"
-
-# If weight is outside the interquartile range, bring it to IQR boundry.
-# first find the interquartile range
-weight <- gsub(" ", "", toupper(All_lap_Data$WEIGHT))
-weight[weight == "NOTANSWERED" | weight == ""] <- NA
-
-temp_weight  <-  as.numeric(weight)
-AboveMean    <-  mean(temp_weight[temp_weight > 130], na.rm = TRUE)
-BelowMean    <-  mean(temp_weight[temp_weight < 130], na.rm = TRUE)
-
-weight[weight == "YES"]  <-  as.character(AboveMean)
-weight[weight == "NO"]   <-  as.character(BelowMean)
-weight                   <-  as.numeric(weight)
-
-mean  <-  mean(weight, na.rm = TRUE)
-IQR   <-  IQR(weight,  na.rm = TRUE)
-
-weight[weight > mean + 2*IQR] <- mean + IQR
-weight[weight < mean - 2*IQR] <- mean - IQR
-
-All_lap_Data$WEIGHT <-  weight
-
-rm(mean, IQR, weight, temp_weight, BelowMean, AboveMean)
-
-#####################################################################################################
-# Minor Cleaning #
-##################
-
-### Voice Log day + Month ###
-All_lap_Data$VOICELOGGED       <-  DateConv(All_lap_Data$VOICELOGGED)
-All_lap_Data$VOICELOGGEDDAY    <-  format(All_lap_Data$VOICELOGGED, format = "%d")
-All_lap_Data$VOICELOGGEDMONTH  <-  format(All_lap_Data$VOICELOGGED, format = "%m")
-
-### Clean smoking columns ###
-All_lap_Data$SMOKERNONSMOKER <- gsub(" ","",gsub("[^[:alnum:] ]", "", toupper(All_lap_Data$SMOKERNONSMOKER)))
-All_lap_Data$SMOKERNONSMOKER[All_lap_Data$SMOKERNONSMOKER == "YES"]   <- "SMOKER"
-All_lap_Data$SMOKERNONSMOKER[All_lap_Data$SMOKERNONSMOKER == "NO"]    <- "NON-SMOKER"
-
-### Clean More than 30 cigs column. anything that is a "no" becomes a "no" ###
-colnames(All_lap_Data)[which(names(All_lap_Data) == "DOYOUSMOKEMORETHAN30CIGARETTESPERDAY")] <- "MORETHAN30"
-All_lap_Data$MORETHAN30 <- gsub(" ","",gsub("[^[:alnum:] ]", "", toupper(All_lap_Data$MORETHAN30)))
-
-All_lap_Data$MORETHAN30[All_lap_Data$MORETHAN30 %in% c("LESSTHAN30ADAY", "LESSTHAN30PERDAY", "NONSMOKER", "NOTAPPLICABLE")] <-  "NO"
-All_lap_Data$MORETHAN30[All_lap_Data$MORETHAN30 %in% c("MORETHAN30ADAY", "MORETHAN30PERDAY")]                               <-  "YES"
-
-### Checking if height is non-numeric or if it is less than 100cm. if the height is less than 100 then we add a 100 ###
-All_lap_Data$HEIGHTINCM <- as.numeric(All_lap_Data$HEIGHTINCM)
-All_lap_Data$HEIGHTINCM[All_lap_Data$HEIGHTINCM < 100 & !is.na(All_lap_Data$HEIGHTINCM)] <- All_lap_Data$HEIGHTINCM[All_lap_Data$HEIGHTINCM < 100 & !is.na(All_lap_Data$HEIGHTINCM)] + 100 
-All_lap_Data$HEIGHTINCM[is.na(All_lap_Data$HEIGHTINCM)] <- median(All_lap_Data$HEIGHTINCM, na.rm = TRUE)
-
-### PPB indicator (1 if PPB, 0 if not) ###
-All_lap_Data$PPB <- gsub(" ", "", All_lap_Data$PPBTOCELLCAPTIVE)
-All_lap_Data$PPB[All_lap_Data$PPB != ""]  <- 1
-All_lap_Data$PPB[All_lap_Data$PPB == ""]  <- 0
-
-# Find Payment Day
-All_lap_Data$PREMIUMPAYERDEBITORDERDAY <- as.numeric(gsub("([0-9]+).*$", "\\1", All_lap_Data$PREMIUMPAYERDEBITORDERDAY))
-
-# We need the number of beneficiaries and the relationship to the policyholder.
-# Cleaning all relationship columns
-temp     <-  select(All_lap_Data, contains("RELATIONSHIPOFBENEFICIARY"))
-temp     <-  toupper(gsub(" ", "", as.matrix(temp)))
-All_lap_Data[colnames(All_lap_Data) %in% colnames(temp)] <- temp 
-
-# finding the names of all the columns with "relationshipofbeneficiary" to count the number of beneficiaries
-All_lap_Data$NUMBEROFBENEFICIARIES <- 0
-temp[temp != ""] <- 1
-temp[temp == ""] <- 0
-temp <- apply(temp, 2, as.numeric)
-All_lap_Data$NUMBEROFBENEFICIARIES <- rowSums(temp)
-
-# Number of credit providers and cleaning provider names.
-temp     <-  select(All_lap_Data, contains("CREDITPROVIDER"))
-temp     <-  toupper(gsub(" ", "", as.matrix(temp)))
-All_lap_Data[colnames(All_lap_Data) %in% colnames(temp)] <- temp
-
-# count the number of credit providers
-All_lap_Data$NOCREDITPROVIDERS          <-  0
-temp[temp != ""]                        <-  1
-temp[temp == ""]                        <-  0
-temp                                    <-  apply(temp, 2, as.numeric)
-All_lap_Data$NOCREDITPROVIDERS          <-  rowSums(temp)
-
-rm(temp)
-
-# Clean email info
-All_lap_Data$EMAILADDRESS <- sub(".*\\@", "", All_lap_Data$EMAILADDRESS)
-All_lap_Data$DOMAIN       <- sub("\\..*$", "", All_lap_Data$EMAILADDRESS)
-All_lap_Data$EXTENTION    <- gsub("[^[:alpha:]]", "", toupper(gsub("^.*?\\.", "", All_lap_Data$EMAILADDRESS)))
-All_lap_Data$EMAILDOTS    <- as.numeric(countLetter(All_lap_Data$EMAILADDRESS, "."))
-All_lap_Data              <- subset(All_lap_Data, select = -EMAILADDRESS)
-
-# Clean phone number info
-All_lap_Data$PHONEW                             <-  gsub(" ", "", All_lap_Data$PHONEW)
-All_lap_Data$PHONEW[All_lap_Data$PHONEW == ""]  <-  "0000000000"
-All_lap_Data$PHONEW                             <-  ifelse(as.character(substr(All_lap_Data$PHONEW, 1, 1)) == "0", 
-                                                           All_lap_Data$PHONEW, 
-                                                           paste("0", All_lap_Data$PHONEW, sep = ""))
-
-All_lap_Data$PHONEAREA     <-  substr(All_lap_Data$PHONEW, 1, 3)
-All_lap_Data$PHONESUBAREA  <-  paste(substr(All_lap_Data$PHONEW, 1, 3), substr(All_lap_Data$PHONEW, 4, 6), sep = "")
-
-All_lap_Data              <- subset(All_lap_Data, select = -PHONEW)
-
-# Get Race Info
-Race_Data$RACE     <-  gsub("[^[:alpha:] ]", "", toupper(Race_Data$RACE))
-Race_Data$SURNAME  <-  gsub("[^[:alpha:] ]", "", toupper(Race_Data$SURNAME))
-Race_Data$CULTURE  <-  gsub("[^[:alpha:] ]", "", toupper(Race_Data$CULTURE))
-
-All_lap_Data$POLICYHOLDERSURNAME <- gsub(" ","", gsub("[^[:alpha:] ]", "", toupper(All_lap_Data$POLICYHOLDERSURNAME)))
-
-Race_Data <- subset(Race_Data, !duplicated(SURNAME))
-
-All_lap_Data <- merge(All_lap_Data, Race_Data, by.x = "POLICYHOLDERSURNAME", by.y = "SURNAME", all.x = TRUE)
-
-# Clean Agent Name
-All_lap_Data$AGENTNAME <- gsub("[^[:alpha:] ]", "", All_lap_Data$AGENTNAME)
-
-# Get ages
-All_lap_Data$DOBOFLIFEINSURED <- DateConv(All_lap_Data$DOBOFLIFEINSURED)
-
-# Age at commencement date
-All_lap_Data$AGE_COM <- as.numeric(All_lap_Data$COMMENCEMENTDATEOFPOLICY - All_lap_Data$DOBOFLIFEINSURED)/365.25
-
-# Age at end date (or active if no end)
-All_lap_Data$AGE_END                              <- as.numeric(All_lap_Data$STATUSEFFECTIVEENDDATE - 
-                                                                  All_lap_Data$DOBOFLIFEINSURED) / 365.25
-All_lap_Data$AGE_END[is.na(All_lap_Data$AGE_END)] <- as.numeric(as.Date(fileXLSDate) - 
-                                                                  All_lap_Data$DOBOFLIFEINSURED[is.na(All_lap_Data$AGE_END)]) / 365.25
-
-# Variables to include
-All_lap_Data  <-  subset(All_lap_Data, select = c(AFFINITYGROUP, TITLEOFPOLICYHOLDER, 
-                                                  PREMIUMPAYERDEBITORDERDAY,
-                                                  VOICELOGGED, AGENTNAME, DURATION, 
-                                                  GENDER, LEVELOFINCOME, EDUCATION, SMOKERNONSMOKER, RACE, CULTURE,
-                                                  AGE_COM, AGE_END,
-                                                  PROVINCE, DOMAIN, EXTENTION, PHONEAREA, PHONESUBAREA,
-                                                  NUMBEROFBENEFICIARIES, NOCREDITPROVIDERS,
-                                                  VOICELOGGEDDAY, VOICELOGGEDMONTH,
-                                                  CREDITPROTECTIONDEATHSUMASSURED,
-                                                  CREDITPROTECTIONDISABILITYSUMASSURED,
-                                                  CREDITPROTECTIONTEMPORARYDISABILITYMONTHLYBENEFIT,
-                                                  TEMPORARYDISABILITYPERIOD,
-                                                  RETRENCHMENTBENEFIT,
-                                                  RAFBENEFIT,
-                                                  CRITICALILLNESSCOVER,
-                                                  YEAR1QUOTEDTOTALPREMIUM,
-                                                  POSTALCODE, PREMIUMPAYERBRANCHCODE,
-                                                  PPB,
-                                                  STATUS))
-
-Options <- c("CREDITPROTECTIONDEATHSUMASSURED", "CREDITPROTECTIONDISABILITYSUMASSURED", 
-             "CREDITPROTECTIONTEMPORARYDISABILITYMONTHLYBENEFIT", "TEMPORARYDISABILITYPERIOD", "RETRENCHMENTBENEFIT",
-             "RAFBENEFIT", "CRITICALILLNESSCOVER", 
-             "YEAR1QUOTEDTOTALPREMIUM", "AGE_COM", "AGE_END", "NUMBEROFBENEFICIARIES", "NOCREDITPROVIDERS",
-             "VOICELOGGEDDAY", "VOICELOGGEDMONTH")
-
-for (opt in Options) {
-  All_lap_Data[[opt]]                              <-  as.numeric(All_lap_Data[[opt]])
-  All_lap_Data[[opt]][is.na(All_lap_Data[[opt]])]  <-  0
+if (as.Date(Sys.Date()) %in% Enrico_data$Clean_Date) {
+  newLead_Dat$PUBHOLIDAY <- "Public_Holiday"
+} else {
+  newLead_Dat$PUBHOLIDAY <- "Normal_Day"
 }
 
-All_lap_Data$PRODUCTS <- paste(ifelse(All_lap_Data$CREDITPROTECTIONDEATHSUMASSURED > 0, "A", ""),
-                               ifelse(All_lap_Data$CREDITPROTECTIONDISABILITYSUMASSURED > 0, "B", ""),
-                               ifelse(All_lap_Data$CREDITPROTECTIONTEMPORARYDISABILITYMONTHLYBENEFIT > 0, "C", ""),
-                               ifelse(All_lap_Data$TEMPORARYDISABILITYPERIOD > 0, "D", ""),
-                               ifelse(All_lap_Data$RETRENCHMENTBENEFIT > 0, "E", ""),
-                               ifelse(All_lap_Data$RAFBENEFIT > 0, "F", ""),
-                               ifelse(All_lap_Data$CRITICALILLNESSCOVER > 0, "G", ""),
-                               sep = "")
- 
-
-All_lap_Data$AFFINITYGROUP              <-  gsub("[^[:alpha:]]", "", toupper(All_lap_Data$AFFINITYGROUP))
-temp_tbl    <- data.frame(table(All_lap_Data$AFFINITYGROUP)) 
-Keeper      <- as.character(temp_tbl$Var1[temp_tbl$Freq/nrow(All_lap_Data) > 0.025])
-All_lap_Data$AFFINITYGROUP[!(All_lap_Data$AFFINITYGROUP %in% Keeper)] <- "OTHER"
-
-All_lap_Data$TITLEOFPOLICYHOLDER        <-  gsub("[^[:alpha:]]", "", toupper(All_lap_Data$TITLEOFPOLICYHOLDER))
-
-All_lap_Data$PREMIUMPAYERDEBITORDERDAY  <-  gsub("[^[:digit:]]", "", toupper(All_lap_Data$PREMIUMPAYERDEBITORDERDAY))
-All_lap_Data$PREMIUMPAYERDEBITORDERDAY[is.na(All_lap_Data$PREMIUMPAYERDEBITORDERDAY)] <- ""
-temp_tbl    <- data.frame(table(All_lap_Data$PREMIUMPAYERDEBITORDERDAY)) 
-Keeper      <- as.character(temp_tbl$Var1[temp_tbl$Freq/nrow(All_lap_Data) > 0.025])
-All_lap_Data$PREMIUMPAYERDEBITORDERDAY[!(All_lap_Data$PREMIUMPAYERDEBITORDERDAY %in% Keeper)] <- "OTHER"
-
-All_lap_Data$AGENTNAME                  <-  gsub("[^[:alpha:]]", "", toupper(All_lap_Data$AGENTNAME))
-All_lap_Data$GENDER                     <-  gsub("[^[:alpha:]]", "", toupper(All_lap_Data$GENDER))
-
-All_lap_Data$LEVELOFINCOME              <-  gsub("[^[:alnum:]]", "", toupper(All_lap_Data$LEVELOFINCOME))
-temp_tbl    <- data.frame(table(All_lap_Data$LEVELOFINCOME)) 
-Keeper      <- as.character(temp_tbl$Var1[temp_tbl$Freq/nrow(All_lap_Data) > 0.025])
-All_lap_Data$LEVELOFINCOME[!(All_lap_Data$LEVELOFINCOME %in% Keeper)] <- "OTHER"
-
-All_lap_Data$EDUCATION                  <-  gsub("[^[:alnum:]]", "", toupper(All_lap_Data$EDUCATION))
-All_lap_Data$SMOKERNONSMOKER            <-  gsub("[^[:alpha:]]", "", toupper(All_lap_Data$SMOKERNONSMOKER))
-
-All_lap_Data$RACE                           <-  gsub("[^[:alpha:]]", "", toupper(All_lap_Data$RACE))
-All_lap_Data$RACE[is.na(All_lap_Data$RACE)] <- ""
-
-All_lap_Data$CULTURE                              <-  gsub("[^[:alpha:]]", "", toupper(All_lap_Data$CULTURE))
-All_lap_Data$CULTURE[is.na(All_lap_Data$CULTURE)] <- ""
-
-All_lap_Data$PROVINCE                   <-  gsub("[^[:alpha:]]", "", toupper(All_lap_Data$PROVINCE))
-
-All_lap_Data$DOMAIN                     <-  gsub("[^[:alpha:]]", "", toupper(All_lap_Data$DOMAIN))
-temp_tbl    <- data.frame(table(All_lap_Data$DOMAIN)) 
-Keeper      <- as.character(temp_tbl$Var1[temp_tbl$Freq/nrow(All_lap_Data) > 0.0075])
-All_lap_Data$DOMAIN[!(All_lap_Data$DOMAIN %in% Keeper)] <- "OTHER"
-
-All_lap_Data$EXTENTION                                          <-  gsub("[^[:alpha:]]", "", toupper(All_lap_Data$EXTENTION))
-Main_Ext <- c("", "ORG", "GOV", "COM", "ACZA", "NET", "COUK", "COZA")
-All_lap_Data$EXTENTION[grep("ORG", All_lap_Data$EXTENTION)]     <-  "ORG"
-All_lap_Data$EXTENTION[grep("GOV", All_lap_Data$EXTENTION)]     <-  "GOV"
-All_lap_Data$EXTENTION[grep("COM", All_lap_Data$EXTENTION)]     <-  "COM"
-All_lap_Data$EXTENTION[grep("ACZA", All_lap_Data$EXTENTION)]    <-  "ACZA"
-All_lap_Data$EXTENTION[grep("NET", All_lap_Data$EXTENTION)]     <-  "NET"
-All_lap_Data$EXTENTION[grep("COUK", All_lap_Data$EXTENTION)]    <-  "COUK"
-All_lap_Data$EXTENTION[grep("COZA", All_lap_Data$EXTENTION)]    <-  "COZA"
-All_lap_Data$EXTENTION[!(All_lap_Data$EXTENTION %in% Main_Ext)] <- "OTHER"
-
-All_lap_Data$PHONEAREA                  <-  gsub("[^[:digit:]]", "", toupper(All_lap_Data$PHONEAREA))
-temp_tbl    <- data.frame(table(All_lap_Data$PHONEAREA)) 
-Keeper      <- as.character(temp_tbl$Var1[temp_tbl$Freq/nrow(All_lap_Data) > 0.015])
-All_lap_Data$PHONEAREA[!(All_lap_Data$PHONEAREA %in% Keeper)] <- "OTHER"
-
-All_lap_Data$PHONESUBAREA               <-  gsub("[^[:digit:]]", "", toupper(All_lap_Data$PHONESUBAREA))
-temp_tbl    <- data.frame(table(All_lap_Data$PHONESUBAREA)) 
-Keeper      <- as.character(temp_tbl$Var1[temp_tbl$Freq/nrow(All_lap_Data) > 0.0025])
-All_lap_Data$PHONESUBAREA[!(All_lap_Data$PHONESUBAREA %in% Keeper)] <- "OTHER"
-
-All_lap_Data$POSTALCODE                 <-  gsub("[^[:digit:]]", "", toupper(All_lap_Data$POSTALCODE))
-temp_tbl    <- data.frame(table(All_lap_Data$POSTALCODE)) 
-Keeper      <- as.character(temp_tbl$Var1[temp_tbl$Freq/nrow(All_lap_Data) > 0.0075])
-All_lap_Data$POSTALCODE[!(All_lap_Data$POSTALCODE %in% Keeper)] <- "OTHER"
+rm(Enrico_data)
 
 
-All_lap_Data$PREMIUMPAYERBRANCHCODE     <-  gsub("[^[:digit:]]", "", toupper(All_lap_Data$PREMIUMPAYERBRANCHCODE))
-temp_tbl    <- data.frame(table(All_lap_Data$PREMIUMPAYERBRANCHCODE)) 
-Keeper      <- as.character(temp_tbl$Var1[temp_tbl$Freq/nrow(All_lap_Data) > 0.0075])
-All_lap_Data$PREMIUMPAYERBRANCHCODE[!(All_lap_Data$PREMIUMPAYERBRANCHCODE %in% Keeper)] <- "OTHER"
+# Time from vehicle purchase date to now
+newLead_Dat$INCEPTIONDATE <- DateConv(newLead_Dat$INCEPTIONDATE)
+newLead_Dat$TIMETOCALL <- as.numeric(as.Date(Sys.time()) - newLead_Dat$INCEPTIONDATE)
 
-All_lap_Data$PPB                        <-  gsub("[^[:digit:]]", "", toupper(All_lap_Data$PPB))
 
-All_lap_Data$STATUS                     <-  gsub("[^[:alpha:]]", "", toupper(All_lap_Data$STATUS))
+# Vehicle Age
+newLead_Dat$VEHICLEAGE <- as.numeric(format(newLead_Dat$INCEPTIONDATE, "%Y")) - as.numeric(newLead_Dat$FIRSTREGISTRATIONYEAR)
 
-All_lap_Data      <- All_lap_Data[All_lap_Data$VOICELOGGED <= firstDayMonth(seq(as.Date(fileXLSDate), length = 2, by = "-5 months")[2]), ]
-All_lap_Data      <- All_lap_Data[All_lap_Data$AGENTNAME != "", ]
-All_lap_Data$Year <- format(All_lap_Data$VOICELOGGED, format = "%Y")
 
-All_lap_Data <- subset(All_lap_Data, select = -c(VOICELOGGED))
+# Cleans Email Data
+newLead_Dat$CLIENTEMAILADDRESS_FULL_DOMAIN <- sub(".*\\@", "", newLead_Dat$CLIENTEMAILADDRESS)
+newLead_Dat$CLIENTEMAILADDRESS_SUB_DOMAIN  <- sub("\\..*$", "", newLead_Dat$CLIENTEMAILADDRESS_FULL_DOMAIN)
+newLead_Dat$CLIENTEMAILADDRESS_SUB_DOMAIN  <- gsub("[^[:alpha:]]", "", toupper(newLead_Dat$CLIENTEMAILADDRESS_SUB_DOMAIN))
 
-# NTU
-NTUData        <- All_lap_Data
-NTUData$STATUS <- as.numeric(ifelse(NTUData$STATUS == "NTU", 1, 0))
+newLead_Dat$CLIENTEMAILADDRESS_EXTENTION   <- gsub("[^[:alpha:]]", "", toupper(gsub("^.*?\\.", "", newLead_Dat$CLIENTEMAILADDRESS_FULL_DOMAIN)))
+newLead_Dat$CLIENTEMAILADDRESS_EXTENTION   <- gsub("[^[:alpha:]]", "", toupper(newLead_Dat$CLIENTEMAILADDRESS_EXTENTION))
 
-col_idx <- grep("STATUS", names(NTUData))
-NTUData <- NTUData[, c(col_idx, (1:ncol(NTUData))[-col_idx])]
+newLead_Dat$CLIENTEMAILADDRESS_DOTS        <- as.numeric(countLetter(newLead_Dat$CLIENTEMAILADDRESS_FULL_DOMAIN, "."))
+newLead_Dat                                <- subset(newLead_Dat, select = -c(CLIENTEMAILADDRESS_FULL_DOMAIN, CLIENTEMAILADDRESS))
 
-# LAPSE
-LAPData        <- All_lap_Data[All_lap_Data$STATUS %in% c("LAP", "ACT"), ]
-LAPData$STATUS <- as.numeric(ifelse(LAPData$STATUS == "LAP", 1, 0))
+DB_EmSd <- Model$var.levels[which(Model$var.names == "CLIENTEMAILADDRESS_SUB_DOMAIN")][[1]]
 
-col_idx <- grep("STATUS", names(LAPData))
-LAPData <- LAPData[, c(col_idx, (1:ncol(LAPData))[-col_idx])]
+newLead_Dat$CLIENTEMAILADDRESS_SUB_DOMAIN[!(newLead_Dat$CLIENTEMAILADDRESS_SUB_DOMAIN %in% DB_EmSd)] <- "OTHER"
 
-# ALL
-ALLData        <- All_lap_Data
-ALLData$STATUS <- as.numeric(ifelse(ALLData$STATUS == "ACT", 0, 1))
+DB_EmExt <- Model$var.levels[which(Model$var.names == "CLIENTEMAILADDRESS_EXTENTION")][[1]]
 
-col_idx <- grep("STATUS", names(ALLData))
-ALLData <- ALLData[, c(col_idx, (1:ncol(ALLData))[-col_idx])]
+newLead_Dat$CLIENTEMAILADDRESS_EXTENTION[!(newLead_Dat$CLIENTEMAILADDRESS_EXTENTION %in% DB_EmExt)] <- "OTHER"
 
-rm(All_lap_Data, col_idx, temp_tbl, Race_Data, opt, Options, Main_Ext, Keeper)
+rm(DB_EmSd, DB_EmExt)
+
+
+# Cleans Data -------------------------------------------------------------
+# Get Postal Adress Data
+newLead_Dat$CLIENTFULLPOSTAL <- paste(newLead_Dat$CLIENTPOSTALADDRESS1, 
+                                      newLead_Dat$CLIENTPOSTALADDRESS2, 
+                                      newLead_Dat$CLIENTPOSTALADDRESS3, 
+                                      newLead_Dat$CLIENTPOSTALADDRESS4,
+                                      newLead_Dat$CLIENTPOSTALADDRESS5,
+                                      newLead_Dat$CLIENTPOSTALADDRESS6,
+                                      newLead_Dat$CLIENTPOSTALADDRESS7,
+                                      newLead_Dat$CLIENTPOSTALADDRESSSUBURB,
+                                      newLead_Dat$CLIENTPOSTALADDRESSCITY,
+                                      newLead_Dat$CLIENTPOSTALADDRESSPOSTALCODE,
+                                      sep = " ")
+# Clean province info
+Provinces <- c("WESTERNCAPE", "WESTERNPROVINCE", "LIMPOPO", "MPUMALANGA", "GAUTENG", 
+               "EASTERNCAPE", "KWAZULUNATAL", "NORTHERNCAPE", "FREESTATE", "NORTHWEST")
+
+AdrDf <- strsplit(newLead_Dat$CLIENTFULLPOSTAL, " ")
+
+n <- max(sapply(AdrDf, length))
+l <- lapply(AdrDf, function(X) c(X, rep(NA, n - length(X))))
+
+AdrDf <- data.frame(t(do.call(cbind, l)), stringsAsFactors = FALSE)
+colnames(AdrDf) <- paste("Address", seq(1:ncol(AdrDf)), sep = "")
+
+for (i in 1:n) {
+  AdrDf[[i]] <- gsub("[^[:alnum:] ]", "", toupper(gsub("^.*?\\.", "", AdrDf[[i]]))) 
+  AdrDf[[i]][AdrDf[[i]] == ""] <- NA
+}
+
+PostalDF <- AdrDf
+
+for (i in 1:n) {
+  PostalDF[[i]] <- as.numeric(PostalDF[[i]])
+}
+
+PostalDF <- data.matrix(PostalDF)
+PostalDF <- PostalDF/PostalDF
+PostalDF[is.na(PostalDF)] <- 0
+
+tempDf <- PostalDF
+
+PostalDF <- as.data.frame(t(apply(PostalDF, 1, cumsum)))
+
+PostalDF[tempDf == 0] <- 0
+
+PostCol <- max.col(PostalDF, "first")
+
+PcodeFin <- do.call(c, args = as.list(AdrDf))
+
+newLead_Dat$CLIENTPOSTALADDRESSPOSTALCODE <- PcodeFin[(1:NROW(AdrDf)) + NROW(AdrDf) * (PostCol - 1)]
+newLead_Dat$CLIENTPOSTALADDRESSPOSTALCODE <- as.character(as.numeric(newLead_Dat$CLIENTPOSTALADDRESSPOSTALCODE))
+City_Post_Data$POSTALCODE <- as.character(as.numeric(City_Post_Data$POSTALCODE))
+
+newLead_Dat <- merge(newLead_Dat, City_Post_Data, by.x = "CLIENTPOSTALADDRESSPOSTALCODE", by.y = "POSTALCODE", all.x = TRUE)
+
+rm(Provinces, AdrDf, n, l, tempDf, i, PostCol, PcodeFin, PostalDF)
+
+newLead_Dat <- subset(newLead_Dat, select = -CLIENTFULLPOSTAL)
+
+colnames(newLead_Dat)[colnames(newLead_Dat) == "CITY"]      <-  "CLIENTPOSTALADDRESSCITY"
+colnames(newLead_Dat)[colnames(newLead_Dat) == "PROVINCE"]  <-  "CLIENTPOSTALADDRESSPROVINCE"
+colnames(newLead_Dat)[colnames(newLead_Dat) == "SUBURB"]    <-  "CLIENTPOSTALADDRESSSUBURB"
+
+DB_City <- Model$var.levels[which(Model$var.names == "CLIENTPOSTALADDRESSCITY")][[1]]
+
+newLead_Dat$CLIENTPOSTALADDRESSCITY[!(newLead_Dat$CLIENTPOSTALADDRESSCITY %in% DB_City)] <- "OTHER"
+
+DB_PCode <- Model$var.levels[which(Model$var.names == "CLIENTPOSTALADDRESSPOSTALCODE")][[1]]
+
+newLead_Dat$CLIENTPOSTALADDRESSPOSTALCODE[!(newLead_Dat$CLIENTPOSTALADDRESSPOSTALCODE %in% DB_PCode)] <- "OTHER"
+
+DB_PSub <- Model$var.levels[which(Model$var.names == "CLIENTPOSTALADDRESSSUBURB")][[1]]
+
+newLead_Dat$CLIENTPOSTALADDRESSSUBURB[!(newLead_Dat$CLIENTPOSTALADDRESSSUBURB %in% DB_PSub)] <- "OTHER"
+
+rm(DB_City, DB_PSub, DB_PCode)
+
+# Cleans Title
+newLead_Dat$CLIENTTITLE <- gsub(" ", "", gsub("[^[:alnum:] ]", "", toupper(newLead_Dat$CLIENTTITLE)))
+
+newLead_Dat$CLIENTTITLE[grepl("REV", newLead_Dat$CLIENTTITLE)]     <-  "REV"
+newLead_Dat$CLIENTTITLE[grepl("PROF", newLead_Dat$CLIENTTITLE)]    <-  "PROF"
+newLead_Dat$CLIENTTITLE[grepl("ADV", newLead_Dat$CLIENTTITLE)]     <-  "ADV"
+newLead_Dat$CLIENTTITLE[grepl("DOCTOR", newLead_Dat$CLIENTTITLE)]  <-  "DR"
+
+DB_TL <- Model$var.levels[which(Model$var.names == "CLIENTTITLE")][[1]]
+
+newLead_Dat$CLIENTTITLE[!(newLead_Dat$CLIENTTITLE %in% DB_TL)] <- NA
+
+rm(DB_TL)
+
+# Marital Status
+newLead_Dat$MARITALSTATUS <- gsub(" ", "", gsub("[^[:alnum:] ]", "", toupper(newLead_Dat$MARITALSTATUS)))
+
+newLead_Dat$MARITALSTATUS[grepl("SINGLE", newLead_Dat$MARITALSTATUS)]     <-  "SINGLE"
+newLead_Dat$MARITALSTATUS[grepl("ENGAGED", newLead_Dat$MARITALSTATUS)]    <-  "ENGAGED"
+newLead_Dat$MARITALSTATUS[grepl("MARRIED", newLead_Dat$MARITALSTATUS)]    <-  "MARRIED"
+newLead_Dat$MARITALSTATUS[grepl("SEPARATED", newLead_Dat$MARITALSTATUS)]  <-  "DIVORCED"
+newLead_Dat$MARITALSTATUS[grepl("DIVORCED", newLead_Dat$MARITALSTATUS)]   <-  "DIVORCED"
+newLead_Dat$MARITALSTATUS[grepl("WIDOW", newLead_Dat$MARITALSTATUS)]      <-  "WIDOW"
+
+DB_MS <- Model$var.levels[which(Model$var.names == "MARITALSTATUS")][[1]]
+
+newLead_Dat$MARITALSTATUS[!(newLead_Dat$MARITALSTATUS %in% DB_MS)] <- NA
+
+rm(DB_MS)
+
+# Occupation
+newLead_Dat$CLIENTOCCUPATIONNAME <- gsub("[^[:alpha:]]", "", toupper(gsub("^.*?\\.", "", newLead_Dat$CLIENTOCCUPATIONNAME)))
+newLead_Dat$CLIENTOCCUPATIONNAME[newLead_Dat$CLIENTOCCUPATIONNAME == ""] <- NA
+
+DB_Occ <- Model$var.levels[which(Model$var.names == "CLIENTOCCUPATIONNAME")][[1]]
+
+newLead_Dat$CLIENTOCCUPATIONNAME[!(newLead_Dat$CLIENTOCCUPATIONNAME %in% DB_Occ)] <- "OTHER"
+
+rm(DB_Occ)
+
+# Model
+
+ModDf <- strsplit(newLead_Dat$MODEL, " ")
+
+n <- max(sapply(ModDf, length))
+l <- lapply(ModDf, function(X) c(X, rep(NA, n - length(X))))
+
+ModDf <- data.frame(t(do.call(cbind, l)), stringsAsFactors = FALSE)
+colnames(ModDf) <- paste("Model", seq(1:ncol(ModDf)), sep = "")
+
+ModDf[[1]][is.na(ModDf[[1]])] <- ""
+ModDf[[2]][is.na(ModDf[[2]])] <- ""
+
+newLead_Dat$MANUFACTURER <- ModDf[[1]]
+newLead_Dat$MODEL        <- paste(ModDf[[1]], ModDf[[2]], sep = "")
+
+newLead_Dat$MANUFACTURER[newLead_Dat$MANUFACTURER == ""] <- NA
+newLead_Dat$MODEL[newLead_Dat$MODEL == ""]               <- NA
+
+newLead_Dat$MANUFACTURER <- gsub("[^[:alnum:] ]", "", toupper(gsub("^.*?\\.", "", newLead_Dat$MANUFACTURER))) 
+newLead_Dat$MODEL <- gsub("[^[:alnum:] ]", "", toupper(gsub("^.*?\\.", "", newLead_Dat$MODEL))) 
+
+rm(n, l, ModDf)
+
+DB_Mod <- Model$var.levels[which(Model$var.names == "MODEL")][[1]]
+
+newLead_Dat$MODEL[!(newLead_Dat$MODEL %in% DB_Mod)] <- "OTHER"
+
+DB_Man <- Model$var.levels[which(Model$var.names == "MANUFACTURER")][[1]]
+
+newLead_Dat$MANUFACTURER[!(newLead_Dat$MANUFACTURER %in% DB_Man)] <- "OTHER"
+
+rm(DB_Mod, DB_Man)
+
+# Year
+# Diff between car model year and purchase year
+YearDf <- strsplit(UniDash(newLead_Dat$FIRSTREGISTRATIONYEAR), "-")
+
+n <- max(sapply(YearDf, length))
+l <- lapply(YearDf, function(X) c(X, rep(NA, n - length(X))))
+
+YearDf <- data.frame(t(do.call(cbind, l)), stringsAsFactors = FALSE)
+colnames(YearDf) <- paste("Year", seq(1:ncol(YearDf)), sep = "")
+
+yyFin <- YearDf[[1]]
+
+for (i in 1:ncol(YearDf)) {
+  
+  yyPrt                    <- as.numeric(YearDf[[i]])
+  yyPrt[nchar(yyPrt) != 4] <- NA
+  
+  yyFin[!is.na(yyPrt)] <- yyPrt[!is.na(yyPrt)]
+  
+}
+
+newLead_Dat$FIRSTREGISTRATIONYEAR <- as.numeric(yyFin)
+
+# Vehicle age at purchase
+newLead_Dat$VEHICLEAGE <- as.numeric(format(newLead_Dat$INCEPTIONDATE, "%Y")) - newLead_Dat$FIRSTREGISTRATIONYEAR
+
+# Accesories count
+newLead_Dat$ACCESSORIES <- str_count(newLead_Dat$ACCESSORIES, ";")
+
+# Vehicle Use
+newLead_Dat$VEHICLEUSE <- gsub("[^[:alpha:]]", "", toupper(gsub("^.*?\\.", "", newLead_Dat$VEHICLEUSE)))
+newLead_Dat$VEHICLEUSE[newLead_Dat$VEHICLEUSE == ""] <- NA
+
+DB_Vuse <- Model$var.levels[which(Model$var.names == "VEHICLEUSE")][[1]]
+
+newLead_Dat$VEHICLEUSE[!(newLead_Dat$VEHICLEUSE %in% DB_Vuse)] <- NA
+
+rm(DB_Vuse)
+
+# Finance and Inusrance info
+newLead_Dat$DOCINSURANCECOMPANYNAME <- gsub("[^[:alpha:]]", "", toupper(gsub("^.*?\\.", "", newLead_Dat$DOCINSURANCECOMPANYNAME)))
+newLead_Dat$DOCINSURANCECOMPANYNAME[newLead_Dat$DOCINSURANCECOMPANYNAME == ""] <- NA
+
+DB_InsCo <- Model$var.levels[which(Model$var.names == "DOCINSURANCECOMPANYNAME")][[1]]
+
+newLead_Dat$DOCINSURANCECOMPANYNAME[!(newLead_Dat$DOCINSURANCECOMPANYNAME %in% DB_InsCo)] <- "OTHER"
+
+newLead_Dat$DOCFINANCECOMPANYNAME <- gsub("[^[:alpha:]]", "", toupper(gsub("^.*?\\.", "", newLead_Dat$DOCFINANCECOMPANYNAME)))
+newLead_Dat$DOCFINANCECOMPANYNAME[newLead_Dat$DOCFINANCECOMPANYNAME == ""] <- NA
+
+DB_FinCo <- Model$var.levels[which(Model$var.names == "DOCFINANCECOMPANYNAME")][[1]]
+
+newLead_Dat$DOCFINANCECOMPANYNAME[!(newLead_Dat$DOCFINANCECOMPANYNAME %in% DB_FinCo)] <- "OTHER"
+
+rm(DB_InsCo, DB_FinCo)
+
+# Branch and Salesman info
+newLead_Dat$BRANCHNAME <- gsub("[^[:alpha:]]", "", toupper(gsub("^.*?\\.", "", newLead_Dat$BRANCHNAME)))
+
+newLead_Dat$SALESPERSON <- gsub("[^[:alpha:]]", "", toupper(gsub("^.*?\\.", "", newLead_Dat$SALESPERSON)))
+
+newLead_Dat$SALESPERSON <- ifelse(newLead_Dat$SALESPERSON != "", paste(newLead_Dat$BRANCHNAME, newLead_Dat$SALESPERSON, sep = "_"), "")
+
+newLead_Dat$SALESPERSON[newLead_Dat$SALESPERSON == ""] <- NA
+newLead_Dat$BRANCHNAME[newLead_Dat$BRANCHNAME == ""]   <- NA
+
+if (length(which(Model$var.names == "SALESPERSON")) == 0) {
+  newLead_Dat <- subset(newLead_Dat, select = -SALESPERSON)
+} else {
+  DB_Sp <- Model$var.levels[which(Model$var.names == "SALESPERSON")][[1]]
+  
+  newLead_Dat$SALESPERSON[!(newLead_Dat$SALESPERSON %in% DB_Sp)] <- "OTHER"
+  rm(DB_Sp)
+}
+
+DB_Bn <- Model$var.levels[which(Model$var.names == "BRANCHNAME")][[1]]
+
+newLead_Dat$BRANCHNAME[!(newLead_Dat$BRANCHNAME %in% DB_Bn)] <- "OTHER"
+
+rm(DB_Bn)
+
+# Affinity
+newLead_Dat$AFFINITY <- gsub(" ", "", gsub("[^[:alpha:] ]", "", toupper(newLead_Dat$AFFINITY)))
+
+DB_Af <- Model$var.levels[which(Model$var.names == "AFFINITY")][[1]]
+
+newLead_Dat$AFFINITY[!(newLead_Dat$AFFINITY %in% DB_Af)] <- "OTHER"
+
+rm(DB_Af)
+
+# ID Type
+newLead_Dat$CLIENTIDTYPE <- toupper(trim(newLead_Dat$CLIENTIDTYPE))
+
+# Race and Culture
+newLead_Dat$RACE <- gsub(" ","", gsub("[^[:alpha:] ]", "", toupper(newLead_Dat$RACE)))
+newLead_Dat$CULTURE <- gsub(" ","", gsub("[^[:alpha:] ]", "", toupper(newLead_Dat$CULTURE)))
+
+DB_Ra <- Model$var.levels[which(Model$var.names == "RACE")][[1]]
+DB_Cu <- Model$var.levels[which(Model$var.names == "CULTURE")][[1]]
+
+newLead_Dat$RACE[!(newLead_Dat$RACE %in% DB_Ra)]       <- NA
+newLead_Dat$CULTURE[!(newLead_Dat$CULTURE %in% DB_Cu)] <- NA
+
+rm(DB_Ra, DB_Cu)
+
+
+# Clean All Numeric Variables 
+Options <- c("FINANCETERM", "VEHICLEVALUE", "DEPOSITVALUE", "RESIDUALVALUE", "FINANCEAMOUNT", "ODOMETERREADING", "TIMETOCALL", "LEADPICKUPTIME",
+             "VEHICLEAGE", "FIRSTREGISTRATIONYEAR", "ACCESSORIES", "CLIENTAGE")
+
+for (opt in Options) {
+  newLead_Dat[[opt]]                             <-  as.numeric(newLead_Dat[[opt]])
+  newLead_Dat[[opt]][is.na(newLead_Dat[[opt]])]  <-  0
+  
+  newLead_Dat[[opt]][newLead_Dat[[opt]] < Model$var.levels[which(Model$var.names == opt)][[1]][1]]  <- Model$var.levels[which(Model$var.names == opt)][[1]][1]
+  newLead_Dat[[opt]][newLead_Dat[[opt]] > Model$var.levels[which(Model$var.names == opt)][[1]][11]] <- Model$var.levels[which(Model$var.names == opt)][[1]][1]
+}
+
+rm(Options, opt)
+
+
+# Select Model Columns and ID variable
+newLead_Dat <- newLead_Dat[, c(Model$var.names, "ID")]
+
+response.names <- "STATUS"
+
+feature.names <- colnames(newLead_Dat)
+feature.names <- feature.names[feature.names != response.names]
+feature.names <- feature.names[feature.names != "CLIENTIDNUMBER"]
+
+for (f in feature.names) {
+  if (class(newLead_Dat[[f]]) == "character") {
+    levels <- Model$var.levels[which(Model$var.names == f)][[1]]
+    #    levels <- unique(c(newLead_Dat[[f]]))
+    newLead_Dat[[f]] <- factor(newLead_Dat[[f]], levels = levels)
+  }
+  else if (class(newLead_Dat[[f]]) == "integer" | class(newLead_Dat[[f]]) == "numeric"){
+    newLead_Dat[[f]] <- ifelse(is.na(newLead_Dat[[f]]), 0, newLead_Dat[[f]])
+  }
+}
+
+
 
