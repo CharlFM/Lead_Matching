@@ -28,19 +28,19 @@ source(paste(Path, "/R_Code/Modelling_Section.R", sep = ""))  # Need to take out
 # Allocation #
 ##############
 
-# Loads New lead data - For Allocation
+# Loads New lead data to DB - For Allocation
 source(paste(Path, "/R_Code/Load_Lead_Data.R", sep = "")) # TO BE MOVED TO INSIDE THE LOOP (continuously read new lead data) !!!! 
                                                           # Will be a seperate script that will run from VB.NET
-
-# Load Current model and start allocation script
-load(paste(getwd(), "/Active_Model.RData", sep = ""))
-
 repeat {
   
   source(paste(Path, "/R_Code/Allocation.R", sep = ""))
-  Sys.sleep(120) # allows to refresh each 2 minutes
+  
+  # Allows to refresh each 2 minutes
+  Sys.sleep(120) 
   
 }
+
+
 
 # Manual Allocation 
 source(paste(Path, "/R_Code/Manual_Allocation.R", sep = ""))
