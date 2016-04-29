@@ -360,13 +360,14 @@ if (length(which(Model$var.names == "SALESPERSON")) == 0) {
   DB_Sp <- Model$var.levels[which(Model$var.names == "SALESPERSON")][[1]]
   
   ManLead_Dat$SALESPERSON[!(ManLead_Dat$SALESPERSON %in% DB_Sp)] <- "OTHER"
+  rm(DB_Sp)
 }
 
 DB_Bn <- Model$var.levels[which(Model$var.names == "BRANCHNAME")][[1]]
 
 ManLead_Dat$BRANCHNAME[!(ManLead_Dat$BRANCHNAME %in% DB_Bn)] <- "OTHER"
 
-rm(DB_Bn, DB_Sp)
+rm(DB_Bn)
 
 # Fix time to call
 ManLead_Dat$TIMETOCALL     <- as.numeric(as.Date(Sys.Date()) - ManLead_Dat$INCEPTIONDATE)
@@ -576,12 +577,12 @@ ManLead_Dat$AFFINITY <- as.character(ManLead_Dat$AFFINITY)
 
 # Manual Update part ------------------------------------------------------
 
-ManLead_Dat$LEADPICKUPTIME <-  12
-ManLead_Dat$WEEKDAY        <-  "Thursday"
+ManLead_Dat$LEADPICKUPTIME <-  11
+ManLead_Dat$WEEKDAY        <-  "Friday"
 ManLead_Dat$WEEKEND        <-  "Weekday"
 ManLead_Dat$WEEKTIME       <-  "Late"
 ManLead_Dat$PUBHOLIDAY     <-  "Normal_Day"
-ManLead_Dat$DAYTIME        <-  "Lunch"
+ManLead_Dat$DAYTIME        <-  "Morning"
 
 names(ManLead_Dat)[!(names(ManLead_Dat) %in% Model$var.names)]
 Model$var.names[!(Model$var.names %in% names(ManLead_Dat))]
@@ -605,6 +606,8 @@ while (allocated > Counter) {
   for (agent in Agents_List$ZM) {
     
     SubsetData$ZLAGENT <- agent
+    SubsetData$ZLAGENT <- as.factor(SubsetData$ZLAGENT)
+    
     Preds <- predict(object   =  Model,
                      newdata  =  SubsetData,
                      n.trees  =  ntrees,
@@ -643,7 +646,7 @@ colnames(ManLead_Dat2)[colnames(ManLead_Dat2) == "ZLAGENT.y"] <- "ZLAGENT"
 for (i in 1:nrow(ManLead_Dat2)) {
   
   updateQuery <- paste("UPDATE AccessLife_Sales_File_Lead_Data ",
-                       "SET ZwingMaster = '", ManLead_Dat2$ZLAGENT[i],"', `Lead Date` = '",today ,"' ",
+                       "SET ZwingMaster = '", ManLead_Dat2$ZLAGENT[i],"', `Lead Date` = '", today ,"' ",
                        "WHERE AutoNumber = '", ManLead_Dat2$LEADNUMBER[i], "'",
                        sep = "")
   dbSendQuery(mydb, updateQuery)

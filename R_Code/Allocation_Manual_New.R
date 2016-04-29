@@ -625,6 +625,8 @@ for (aff in Affins) {
     for (agent in Agents) {
       
       SubsetData$ZLAGENT <- agent
+      SubsetData$ZLAGENT <- as.factor(SubsetData$ZLAGENT)
+      
       Preds <- predict(object = Model,
                        newdata = SubsetData,
                        n.trees = ntrees,
