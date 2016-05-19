@@ -35,6 +35,7 @@ repeat {
   
   source(paste(Path, "/R_Code/Allocation.R", sep = ""))
   
+  dbDisconnectAll()
   # Allows to refresh each 2 minutes
   Sys.sleep(120) 
   
