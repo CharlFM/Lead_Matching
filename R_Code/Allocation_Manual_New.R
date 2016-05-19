@@ -346,15 +346,21 @@ ManLead_Dat$SALESPERSON <- ifelse(ManLead_Dat$SALESPERSON != "", paste(ManLead_D
 ManLead_Dat$SALESPERSON[ManLead_Dat$SALESPERSON == ""] <- NA
 ManLead_Dat$BRANCHNAME[ManLead_Dat$BRANCHNAME == ""]   <- NA
 
-DB_Sp <- Model$var.levels[which(Model$var.names == "SALESPERSON")][[1]]
-
-ManLead_Dat$SALESPERSON[!(ManLead_Dat$SALESPERSON %in% DB_Sp)] <- "OTHER"
+if (length(which(Model$var.names == "SALESPERSON")) == 0) {
+  ManLead_Dat <- subset(ManLead_Dat, select = -SALESPERSON)
+} else {
+  DB_Sp <- Model$var.levels[which(Model$var.names == "SALESPERSON")][[1]]
+  
+  ManLead_Dat$SALESPERSON[!(ManLead_Dat$SALESPERSON %in% DB_Sp)] <- "OTHER"
+  rm(DB_Sp)
+}
 
 DB_Bn <- Model$var.levels[which(Model$var.names == "BRANCHNAME")][[1]]
 
 ManLead_Dat$BRANCHNAME[!(ManLead_Dat$BRANCHNAME %in% DB_Bn)] <- "OTHER"
 
-rm(DB_Bn, DB_Sp)
+rm(DB_Bn)
+
 
 # Fix time to call
 ManLead_Dat$TIMETOCALL     <- as.numeric(as.Date(Sys.Date()) - ManLead_Dat$INCEPTIONDATE)
@@ -561,12 +567,61 @@ for (f in feature.names) {
 
 ManLead_Dat$AFFINITY <- as.character(ManLead_Dat$AFFINITY)
 
-ManLead_Dat$LEADPICKUPTIME <-  12
-ManLead_Dat$WEEKDAY        <-  "Monday"
-ManLead_Dat$WEEKEND        <-  "Weekday"
-ManLead_Dat$WEEKTIME       <-  "Early"
-ManLead_Dat$PUBHOLIDAY     <-  "Normal_Day"
-ManLead_Dat$DAYTIME        <-  "Lunch"
+#########################################################################
+
+ManLead_Dat$LEADPICKUPDATE <- as.Date(Sys.Date())
+
+#########################################################################
+
+ManLead_Dat$LEADPICKUPTIME <-  as.numeric(format(round(Sys.time(), units = "hours"), format = "%H"))
+
+#########################################################################
+
+ManLead_Dat$DAYTIME <- "Morning"
+ManLead_Dat$DAYTIME[ManLead_Dat$LEADPICKUPTIME %in% 12:14] <- "Lunch"
+ManLead_Dat$DAYTIME[ManLead_Dat$LEADPICKUPTIME %in% 15:18] <- "Midday"
+ManLead_Dat$DAYTIME[ManLead_Dat$LEADPICKUPTIME %in% 19:24] <- "Night"
+
+#########################################################################
+
+ManLead_Dat$WEEKDAY  <- weekdays(Sys.Date())
+
+#########################################################################
+
+ManLead_Dat$WEEKEND  <- "Weekday"
+ManLead_Dat$WEEKEND[ManLead_Dat$WEEKDAY == "Saturday" | ManLead_Dat$WEEKDAY == "Sunday"]  <- "Weekend"
+
+#########################################################################
+
+ManLead_Dat$WEEKTIME <- "Early"
+ManLead_Dat$WEEKTIME[ManLead_Dat$WEEKDAY == "Wednesday"]  <- "Mid"
+ManLead_Dat$WEEKTIME[ManLead_Dat$WEEKDAY == "Thursday" | ManLead_Dat$WEEKDAY == "Friday"]  <- "Late"
+ManLead_Dat$WEEKTIME[ManLead_Dat$WEEKDAY == "Saturday" | ManLead_Dat$WEEKDAY == "Sunday"]  <- "Weekend"
+
+#########################################################################
+
+EnricoURL   <- paste("http://kayaposoft.com/enrico/json/v1.0/index.php?action=getPublicHolidaysForDateRange&fromDate=01-01-2013&toDate=31-12-",
+                     format(Sys.Date(),"%Y"), 
+                     "&country=zaf&region=all",
+                     sep = "")
+Enrico_data <- fromJSON(EnricoURL)
+
+Enrico_data$date$month <- str_pad(Enrico_data$date$month, width = 2, side = "left", pad = "0")
+Enrico_data$date$day   <- str_pad(Enrico_data$date$day,   width = 2, side = "left", pad = "0")
+
+Enrico_data$Clean_Date <- as.Date(paste(Enrico_data$date$year, Enrico_data$date$month, Enrico_data$date$day, sep = "-"))
+Enrico_data$PUBHOLIDAY <- "Public_Holiday"
+
+Enrico_data <- subset(Enrico_data, select = c(Clean_Date, PUBHOLIDAY))
+
+ManLead_Dat <- merge(ManLead_Dat, Enrico_data, by.x = "LEADPICKUPDATE", by.y = "Clean_Date", all.x = TRUE)
+
+ManLead_Dat$PUBHOLIDAY[is.na(ManLead_Dat$PUBHOLIDAY)] <- "Normal_Day"
+
+rm(Enrico_data)
+
+#########################################################################
+
 
 names(ManLead_Dat)[!(names(ManLead_Dat) %in% Model$var.names)]
 Model$var.names[!(Model$var.names %in% names(ManLead_Dat))]
@@ -650,8 +705,7 @@ for (aff in Affins) {
       
       affCount <- affCount + 1 
       
-      print(aff)
-      print(affCount)
+      print(paste(aff, ":", affCount))
       
     }
     

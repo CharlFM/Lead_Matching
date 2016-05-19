@@ -18,25 +18,28 @@ DB_Names <- read_excel(paste(Path, "/Data/Lead_Col_Names/DBNAMES.xlsx", sep = ""
                        col_names = TRUE)
 
 query <- paste("SELECT * ",
-               "FROM AccessLife_Sales_File_Lead_Data ",
-               "WHERE `Status` = 'Allocated' ",
-               "AND `First Allocation Date` BETWEEN '", as.Date(Sys.Date()) - months(7), "' AND '", as.Date(Sys.Date()) - months(1),"' ",
-               "AND `Lead Date` <> '",today ,"' ",
-               "AND `UW Status` IS NULL AND `QA Status` IS NULL AND Affinity <> 'Auto Pedigree' AND ZwingMaster <> 'Douglas Gwanyanya'",
-               sep = "")
+              "FROM AccessLife_Sales_File_Lead_Data ",
+              "WHERE `Status` = 'Allocated' ",
+              "AND `First Allocation Date` BETWEEN '", as.Date(Sys.Date()) - months(7), "' AND '", as.Date(Sys.Date()) - months(1),"' ",
+              "AND `Lead Date` <> '",today ,"' ",
+              "AND `UW Status` IS NULL AND `QA Status` IS NULL AND Affinity <> 'Auto Pedigree' AND ZwingMaster <> 'Douglas Gwanyanya'",
+              sep = "")
 
 ManLead_Dat <- dbGetQuery(mydb, query)
-
-Allocation_Dat <- read_excel(paste(Path, "/Data/Manual_Data/Allocation_Data.xlsx", sep = ""),
-                             sheet = 1,
-                             col_names = TRUE)
-colnames(Allocation_Dat)  <- gsub(" ","", gsub("[^[:alnum:] ]", "", gsub("X.","", toupper(colnames(Allocation_Dat)))))
 
 colnames(ManLead_Dat)  <- gsub(" ","", gsub("[^[:alnum:] ]", "", gsub("X.","", toupper(colnames(ManLead_Dat)))))
 DB_Names$Original <- gsub(" ","", gsub("[^[:alnum:] ]", "", gsub("X.","", toupper(DB_Names$Original))))
 
 ManLead_Dat <- ManLead_Dat[, colnames(ManLead_Dat) %in% DB_Names$Original]
 colnames(ManLead_Dat) <- DB_Names$New[match(colnames(ManLead_Dat), DB_Names$Original)]
+
+agent.query <- paste("SELECT * ",
+                     "FROM agents ",
+                     "WHERE `Active` = 'YES' ",
+                     "AND `Recycle` = 'YES' ",
+                     sep = "")
+
+Agents_List <- dbGetQuery(my_new_db, agent.query)
 
 ManLead_Dat$ID <- seq(1:nrow(ManLead_Dat))
 
@@ -575,21 +578,67 @@ for (f in feature.names) {
 
 ManLead_Dat$AFFINITY <- as.character(ManLead_Dat$AFFINITY)
 
-# Manual Update part ------------------------------------------------------
+#########################################################################
 
-ManLead_Dat$LEADPICKUPTIME <-  11
-ManLead_Dat$WEEKDAY        <-  "Friday"
-ManLead_Dat$WEEKEND        <-  "Weekday"
-ManLead_Dat$WEEKTIME       <-  "Late"
-ManLead_Dat$PUBHOLIDAY     <-  "Normal_Day"
-ManLead_Dat$DAYTIME        <-  "Morning"
+ManLead_Dat$LEADPICKUPDATE <- as.Date(Sys.Date())
+
+#########################################################################
+
+ManLead_Dat$LEADPICKUPTIME <-  as.numeric(format(round(Sys.time(), units = "hours"), format = "%H"))
+
+#########################################################################
+
+ManLead_Dat$DAYTIME <- "Morning"
+ManLead_Dat$DAYTIME[ManLead_Dat$LEADPICKUPTIME %in% 12:14] <- "Lunch"
+ManLead_Dat$DAYTIME[ManLead_Dat$LEADPICKUPTIME %in% 15:18] <- "Midday"
+ManLead_Dat$DAYTIME[ManLead_Dat$LEADPICKUPTIME %in% 19:24] <- "Night"
+
+#########################################################################
+
+ManLead_Dat$WEEKDAY  <- weekdays(Sys.Date())
+
+#########################################################################
+
+ManLead_Dat$WEEKEND  <- "Weekday"
+ManLead_Dat$WEEKEND[ManLead_Dat$WEEKDAY == "Saturday" | ManLead_Dat$WEEKDAY == "Sunday"]  <- "Weekend"
+
+#########################################################################
+
+ManLead_Dat$WEEKTIME <- "Early"
+ManLead_Dat$WEEKTIME[ManLead_Dat$WEEKDAY == "Wednesday"]  <- "Mid"
+ManLead_Dat$WEEKTIME[ManLead_Dat$WEEKDAY == "Thursday" | ManLead_Dat$WEEKDAY == "Friday"]  <- "Late"
+ManLead_Dat$WEEKTIME[ManLead_Dat$WEEKDAY == "Saturday" | ManLead_Dat$WEEKDAY == "Sunday"]  <- "Weekend"
+
+#########################################################################
+
+EnricoURL   <- paste("http://kayaposoft.com/enrico/json/v1.0/index.php?action=getPublicHolidaysForDateRange&fromDate=01-01-2013&toDate=31-12-",
+                     format(Sys.Date(),"%Y"), 
+                     "&country=zaf&region=all",
+                     sep = "")
+Enrico_data <- fromJSON(EnricoURL)
+
+Enrico_data$date$month <- str_pad(Enrico_data$date$month, width = 2, side = "left", pad = "0")
+Enrico_data$date$day   <- str_pad(Enrico_data$date$day,   width = 2, side = "left", pad = "0")
+
+Enrico_data$Clean_Date <- as.Date(paste(Enrico_data$date$year, Enrico_data$date$month, Enrico_data$date$day, sep = "-"))
+Enrico_data$PUBHOLIDAY <- "Public_Holiday"
+
+Enrico_data <- subset(Enrico_data, select = c(Clean_Date, PUBHOLIDAY))
+
+ManLead_Dat <- merge(ManLead_Dat, Enrico_data, by.x = "LEADPICKUPDATE", by.y = "Clean_Date", all.x = TRUE)
+
+ManLead_Dat$PUBHOLIDAY[is.na(ManLead_Dat$PUBHOLIDAY)] <- "Normal_Day"
+
+rm(Enrico_data)
+
+#########################################################################
 
 names(ManLead_Dat)[!(names(ManLead_Dat) %in% Model$var.names)]
 Model$var.names[!(Model$var.names %in% names(ManLead_Dat))]
 
 # Allocate ----------------------------------------------------------------
 
-Agents_List <- Allocation_Dat
+Agents_List$ZWINGMASTER <- paste(Agents_List$AgentName, Agents_List$AgentSurname)
 Agents_List$ZM <- gsub(" ", "", gsub("[^[:alpha:] ]", "", toupper(Agents_List$ZWINGMASTER)))
 Agents_List <- subset(Agents_List, select = c(ZM, ZWINGMASTER))
 
