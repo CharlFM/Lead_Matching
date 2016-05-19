@@ -41,11 +41,7 @@ rm(Enrico_data)
 
 # Time from vehicle purchase date to now
 newLead_Dat$INCEPTIONDATE <- DateConv(newLead_Dat$INCEPTIONDATE)
-newLead_Dat$TIMETOCALL <- as.numeric(as.Date(Sys.time()) - newLead_Dat$INCEPTIONDATE)
-
-
-# Vehicle Age
-newLead_Dat$VEHICLEAGE <- as.numeric(format(newLead_Dat$INCEPTIONDATE, "%Y")) - as.numeric(newLead_Dat$FIRSTREGISTRATIONYEAR)
+newLead_Dat$TIMETOCALL    <- as.numeric(as.Date(Sys.time()) - newLead_Dat$INCEPTIONDATE)
 
 
 # Cleans Email Data
@@ -189,7 +185,6 @@ newLead_Dat$CLIENTOCCUPATIONNAME[!(newLead_Dat$CLIENTOCCUPATIONNAME %in% DB_Occ)
 rm(DB_Occ)
 
 # Model
-
 ModDf <- strsplit(newLead_Dat$MODEL, " ")
 
 n <- max(sapply(ModDf, length))
@@ -312,12 +307,21 @@ newLead_Dat$AFFINITY[!(newLead_Dat$AFFINITY %in% DB_Af)] <- "OTHER"
 
 rm(DB_Af)
 
-# ID Type
-newLead_Dat$CLIENTIDTYPE <- toupper(trim(newLead_Dat$CLIENTIDTYPE))
-
-# Race and Culture
-newLead_Dat$RACE <- gsub(" ","", gsub("[^[:alpha:] ]", "", toupper(newLead_Dat$RACE)))
-newLead_Dat$CULTURE <- gsub(" ","", gsub("[^[:alpha:] ]", "", toupper(newLead_Dat$CULTURE)))
+# Difference between Old and New DB - Old DB requires a bit of extra cleaning
+if (Recycle == 0) {
+  
+  # ID Type
+  newLead_Dat$CLIENTIDTYPE <- toupper(trim(newLead_Dat$CLIENTIDTYPE))
+  
+  # Race and Culture
+  newLead_Dat$RACE    <- gsub(" ","", gsub("[^[:alpha:] ]", "", toupper(newLead_Dat$RACE)))
+  newLead_Dat$CULTURE <- gsub(" ","", gsub("[^[:alpha:] ]", "", toupper(newLead_Dat$CULTURE)))
+  
+} else {
+  
+  source(paste(Path, "/R_Code/Old_Clean.R", sep = ""))
+  
+}
 
 DB_Ra <- Model$var.levels[which(Model$var.names == "RACE")][[1]]
 DB_Cu <- Model$var.levels[which(Model$var.names == "CULTURE")][[1]]
