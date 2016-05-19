@@ -1,12 +1,16 @@
-# Open Connection to DB ---------------------------------------------------
+# Open Connection to DB and Initialize ------------------------------------
 # Load Current model and start allocation script
 load(paste(getwd(), "/Active_Model.RData", sep = ""))
 
 # Needs to be loaded once
 source(paste(Path, "/R_Code/Load_Other_Data.R", sep = ""))
 
+# Opens connection
 source(paste(Path, "/R_Code/OpenDB.R", sep = ""))
+
+# Reusable date
 today <- as.character(Sys.Date())
+
 
 # Get all active agents ---------------------------------------------------
 agentQuery <- paste("SELECT * ",
@@ -14,16 +18,17 @@ agentQuery <- paste("SELECT * ",
                     "WHERE `Active` = 'YES'",
                     sep = "")
 
-activeAgent_Dat <- dbGetQuery(my_new_db, agentQuery)
+activeAgent_Dat          <- dbGetQuery(my_new_db, agentQuery)
 activeAgent_Dat$FullName <- paste(activeAgent_Dat$AgentName, activeAgent_Dat$AgentSurname)
 
 countQuery <- paste("SELECT * ",
                     "FROM AccessLife_Sales_File_Lead_Data ",
-                    "WHERE `Status` = 'Allocated' AND `First Allocation Date` > '2016-04-20'", # Update Allocation date to when model goes live
+                    "WHERE `Status` = 'Allocated' AND `First Allocation Date` > '2016-04-20'", # UPDATE!!! To allocation date to when model goes live
                     sep = "")
 
-count_Dat <- dbGetQuery(mydb, countQuery)
-colnames(count_Dat) <- gsub(" ", "", colnames(count_Dat))
+count_Dat            <-  dbGetQuery(mydb, countQuery)
+colnames(count_Dat)  <-  gsub(" ", "", colnames(count_Dat))
+
 
 # Load New Data - if available --------------------------------------------
 loadNewDataQuery <- paste("SELECT value ",
@@ -57,6 +62,7 @@ if (as.numeric(loadNewData) == 1) {
 }
 
 
+# Load Recyleable Data if new data is finished ----------------------------
 if (nrow(newLead_Dat) == 0) {
   
   Recycle <- 1
@@ -71,15 +77,32 @@ if (nrow(newLead_Dat) == 0) {
   
   newLead_Dat <- dbGetQuery(mydb, query)
   
+  # Update Column Names
+  DB_Names <- read_excel(paste(Path, "/Data/Lead_Col_Names/DBNAMES.xlsx", sep = ""),
+                         sheet = 1,
+                         col_names = TRUE)
+  colnames(newLead_Dat)  <- gsub(" ","", gsub("[^[:alnum:] ]", "", gsub("X.","", toupper(colnames(newLead_Dat)))))
+  DB_Names$Original <- gsub(" ","", gsub("[^[:alnum:] ]", "", gsub("X.","", toupper(DB_Names$Original))))
+  
+  newLead_Dat <- newLead_Dat[, colnames(newLead_Dat) %in% DB_Names$Original]
+  colnames(newLead_Dat) <- DB_Names$New[match(colnames(newLead_Dat), DB_Names$Original)]
+  
+  newLead_Dat$ID   <- 1:nrow(newLead_Dat)
+  newLead_Dat_Orig <- newLead_Dat
+  
 }
 
-# Clean Data --------------------------------------------------------------
 
+# Clean Data --------------------------------------------------------------
 source(paste(Path, "/R_Code/Append_Sort.R", sep = ""))
 
 
 # Determine which agents needs leads --------------------------------------
-# NEEDS TO CALC EACH SUNDAY NIGHT TO DETERMINE MAX NUMBER OF LEADS PER AGENT -> Update in table
+# # First Calculate the maximum number of leads any particular agent can get
+# if (format(Sys.time(),'%H:%M:%S') == "01:00:00") {
+#   source(paste(Path, "/R_Code/Cap_Calc.R", sep = "")) 
+# }
+
 countAgents <- count_Dat %>% 
                   group_by(ZwingMaster) %>%
                   summarize(n = n())
@@ -106,6 +129,7 @@ for (i in 1:nrow(countAgents)) {
     
   }
 }
+
 
 # Top-Up leads ------------------------------------------------------------
 SubsetData <- newLead_Dat
@@ -164,8 +188,8 @@ newLead_Dat2$STATICON             <-  "Red1.png"
 newLead_Dat_Orig <- newLead_Dat_Orig[!(newLead_Dat_Orig$ID %in% newLead_Dat2$ID), ]
 newLead_Dat      <- newLead_Dat[!(newLead_Dat$ID %in% newLead_Dat2$ID), ]
 
-# Update DB's -------------------------------------------------------------
 
+# Update DB's -------------------------------------------------------------
 for (i in 1:nrow(newLead_Dat2)) {
   
   if (Recycle == 0) {
