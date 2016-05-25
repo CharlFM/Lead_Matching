@@ -20,9 +20,9 @@ DB_Names <- read_excel(paste(Path, "/Data/Lead_Col_Names/DBNAMES.xlsx", sep = ""
 query <- paste("SELECT * ",
               "FROM AccessLife_Sales_File_Lead_Data ",
               "WHERE `Status` = 'Allocated' ",
-              "AND `First Allocation Date` BETWEEN '", as.Date(Sys.Date()) - months(7), "' AND '", as.Date(Sys.Date()) - months(1),"' ",
+              "AND `First Allocation Date` BETWEEN '", as.Date(Sys.Date()) - months(6), "' AND '", as.Date(Sys.Date()),"' ",
               "AND `Lead Date` <> '",today ,"' ",
-              "AND `UW Status` IS NULL AND `QA Status` IS NULL AND Affinity <> 'Auto Pedigree' AND ZwingMaster <> 'Douglas Gwanyanya'",
+              "AND `UW Status` IS NULL AND `QA Status` IS NULL AND Affinity <> 'Auto Pedigree'",
               sep = "")
 
 ManLead_Dat <- dbGetQuery(mydb, query)
@@ -375,7 +375,7 @@ rm(DB_Bn)
 # Fix time to call
 ManLead_Dat$TIMETOCALL     <- as.numeric(as.Date(Sys.Date()) - ManLead_Dat$INCEPTIONDATE)
 
-ManLead_Dat <- subset(ManLead_Dat, select = -c(INCEPTIONDATE, FIRSTALLOCATIONDATE))
+ManLead_Dat <- subset(ManLead_Dat, select = -INCEPTIONDATE)
 
 
 #
@@ -646,11 +646,27 @@ LeadOut <- data.frame(ZLAGENT = as.character(),
                       Pred    = as.numeric(),
                       ID      = as.integer())
 
-allocated  <- nrow(ManLead_Dat)
+allocated  <- min(nrow(ManLead_Dat), 35 * nrow(Agents_List))
 Counter    <- 0
-SubsetData <- ManLead_Dat
 
-while (allocated > Counter) {
+DateSeq <- seq(as.Date(Sys.Date()), by = "-1 day", length.out = 7)
+DateSeq <- data.frame(Dates = DateSeq, Days = weekdays(DateSeq))
+Date.FM <- DateSeq$Dates[DateSeq$Days == "Monday"]
+
+SubsetData.FM   <- ManLead_Dat[ManLead_Dat$FIRSTALLOCATIONDATE == Date.FM, ]
+SubsetData.Rest <- ManLead_Dat[ManLead_Dat$FIRSTALLOCATIONDATE != Date.FM, ]
+
+SubsetData.FM   <- subset(SubsetData.FM, select = -FIRSTALLOCATIONDATE)
+SubsetData.Rest <- subset(SubsetData.Rest, select = -FIRSTALLOCATIONDATE)
+
+SubsetData <- SubsetData.FM
+
+while (allocated >= Counter) {
+  
+  if (nrow(SubsetData) == 0) {
+    SubsetData <- SubsetData.Rest
+  } 
+    
   # Adding until cap is reached
   for (agent in Agents_List$ZM) {
     
@@ -666,7 +682,7 @@ while (allocated > Counter) {
     SubsetData <- SubsetData %>%
       arrange(desc(Pred))
     
-    MaxID <- SubsetData$ID[1:1]
+    MaxID <- SubsetData$ID[1]
     
     UpdateR <- data.frame(ZLAGENT = Agents_List$ZWINGMASTER[which(Agents_List$ZM %in% agent)],
                           Pred    = SubsetData$Pred[SubsetData$ID == MaxID],
@@ -680,15 +696,20 @@ while (allocated > Counter) {
     
     print(paste(Counter, "of", allocated))
     
+    if (nrow(SubsetData) == 0) break
+    
   }
   
 }
 
+colnames(ManLead_Dat_Orig)[colnames(ManLead_Dat_Orig) == "ZLAGENT"] <- "ZLAGENT_Original"
 ManLead_Dat2 <- merge(ManLead_Dat_Orig, LeadOut, by.x = "ID", by.y = "ID")
 
-ManLead_Dat2 <- subset(ManLead_Dat2, select = -ZLAGENT.x)
+d_time <- gsub(" ", "_", Sys.time())
+d_time <- gsub("-", "_", d_time)
+d_time <- gsub(":", "_", d_time)
 
-colnames(ManLead_Dat2)[colnames(ManLead_Dat2) == "ZLAGENT.y"] <- "ZLAGENT"
+write.csv(ManLead_Dat2, paste(Path, "/Output/Recycled/Results_", d_time, ".csv", sep = ""))
 
 # Update DB ---------------------------------------------------------------
 
