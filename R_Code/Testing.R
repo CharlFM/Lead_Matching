@@ -1,19 +1,22 @@
 
 #  Predictions GBM --------------------------------------------------------
+
+ntrees <- max(Model$trees.fitted)
+
 # Test set predictions
 TestPred <- predict(object = Model,
                     newdata = test,
-                    n.trees = gbm.perf(Model),
+                    n.trees = ntrees,
                     type = "response")
 
-AUC::auc(AUC::roc(TestPred, as.factor(test$STATUS))) # 0.7446556
+AUC::auc(AUC::roc(TestPred, as.factor(test$STATUS))) # 0.768791 
 
 TrainPred <- predict(object = Model,
                      newdata = train,
-                     n.trees = gbm.perf(Model),
+                     n.trees = ntrees,
                      type = "response")
 
-AUC::auc(AUC::roc(TrainPred, as.factor(train$STATUS))) # 0.755016
+AUC::auc(AUC::roc(TrainPred, as.factor(train$STATUS))) # 0.7680261
 
 #   -----------------------------------------------------------------------
 
