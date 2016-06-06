@@ -28,7 +28,7 @@ for(i in 1:length(Model$var.names)) {
        type    =  "response")
 }
 
-i <- 34 # 34 total
+i <- 33 # 34 total
 VarInf <- plot(Model, 
                i.var   =  i,
                ntrees  =  Opt_Trees,
