@@ -1,38 +1,50 @@
 
+# Clears Memory
+options(java.parameters = "-Xmx4g")
+rm(list = ls())
+gc()
+
+Path <- getwd()
+
+source(paste(Path, "/R_Code/Initialize.R", sep = ""))
+
+# Opens DB
+source(paste(Path, "/R_Code/OpenDB.R", sep = ""))
+
 # Load Data ---------------------------------------------------------------
+# Loads New lead data to DB - For Allocation
+source(paste(Path, "/R_Code/Load_Lead_Data.R", sep = "")) 
 
 # Loads City/Race/ etc data - For Allocation and Modelling
 source(paste(Path, "/R_Code/Load_Other_Data.R", sep = ""))
 
 # Load current model
+today <- as.character(Sys.Date())
 load(paste(getwd(), "/Active_Model.RData", sep = ""))
 ntrees <- max(Model$trees.fitted)
+
 # Loads manual allocation Data
 DB_Names <- read_excel(paste(Path, "/Data/Lead_Col_Names/DBNAMES.xlsx", sep = ""),
                        sheet = 1,
                        col_names = TRUE)
 
-ManLead_Dat <- read_excel(paste(Path, "/Data/Manual_Data/Man_Lead_Data.xlsx", sep = ""),
-                          sheet = 1,
-                          col_names = TRUE)
-txtType <- rep("text", ncol(ManLead_Dat))
-ManLead_Dat <- read_excel(paste(Path, "/Data/Manual_Data/Man_Lead_Data.xlsx", sep = ""),
-                          sheet = 1,
-                          col_types = txtType,
-                          col_names = TRUE)
+All_lead_Data$FIRSTALLOCATIONDATE <- today
+All_lead_Data$LEADDATE            <- today
 
-Allocation_Dat <- read_excel(paste(Path, "/Data/Manual_Data/Allocation_Data.xlsx", sep = ""),
-                             sheet = 1,
-                             col_names = TRUE)
-colnames(Allocation_Dat)  <- gsub(" ","", gsub("[^[:alnum:] ]", "", gsub("X.","", toupper(colnames(Allocation_Dat)))))
+ManLead_Dat <- All_lead_Data[, colnames(All_lead_Data) %in% c(DB_Names$New, 
+                                                              "CLIENTAGE", "CLIENTIDTYPE", "PRODUCTTYPECATEGORYNAME", "TAKEN")]
+ManLead_Dat$PRODUCTTYPECATEGORYNAME <- ifelse(ManLead_Dat$TAKEN == 1 & ManLead_Dat$PRODUCTTYPECATEGORYNAME == "Retrenchment", 1, 0)
 
-colnames(ManLead_Dat)  <- gsub(" ","", gsub("[^[:alnum:] ]", "", gsub("X.","", toupper(colnames(ManLead_Dat)))))
-DB_Names$Original <- gsub(" ","", gsub("[^[:alnum:] ]", "", gsub("X.","", toupper(DB_Names$Original))))
+agent.query <- paste("SELECT * ",
+                     "FROM agents ",
+                     "WHERE `Active` = 'YES' ",
+                     sep = "")
 
-ManLead_Dat <- ManLead_Dat[, colnames(ManLead_Dat) %in% DB_Names$Original]
-colnames(ManLead_Dat) <- DB_Names$New[match(colnames(ManLead_Dat), DB_Names$Original)]
+Allocation_Dat <- dbGetQuery(my_new_db, agent.query)
 
 ManLead_Dat$ID <- seq(1:nrow(ManLead_Dat))
+
+ManLead_DatOrig <- ManLead_Dat
 
 # Prepare Model Data ------------------------------------------------------
 
@@ -49,8 +61,6 @@ ManLead_Dat <- subset(ManLead_Dat, select = -c(CLIENTWORKTELEPHONENUMBER, CLIENT
                                                TRANSACTIONNUMBER, CLIENTPOSTALADDRESS1, CLIENTPOSTALADDRESS2, CLIENTPOSTALADDRESS3,
                                                CLIENTPOSTALADDRESS4, CLIENTPOSTALADDRESSPOSTALCODE))
 
-ManLead_Dat <- subset(ManLead_Dat, select = -LEADNUMBER)
-
 #
 # Cleaned Inception Date 
 #
@@ -62,9 +72,6 @@ ManLead_Dat$INCEPTIONDATE[ManLead_Dat$INCEPTIONDATE == "########"] <- NA
 
 ManLead_Dat$INCEPTIONDATE[is.na(ManLead_Dat$INCEPTIONDATE)] <- ManLead_Dat$FIRSTALLOCATIONDATE[is.na(ManLead_Dat$INCEPTIONDATE)]  
 ManLead_Dat$INCEPTIONDATE[is.na(ManLead_Dat$INCEPTIONDATE)] <- ManLead_Dat$LEADDATE[is.na(ManLead_Dat$INCEPTIONDATE)]
-
-ManLead_Dat$LEADDATE[is.na(ManLead_Dat$LEADDATE)] <- ManLead_Dat$FIRSTALLOCATIONDATE[is.na(ManLead_Dat$LEADDATE)]  
-ManLead_Dat$LEADDATE <- DateConv(ManLead_Dat$LEADDATE)
 
 # Uncomment using ctrl shift c if needed
 # # Average Sales per month by agent ----------------------------------------
@@ -99,89 +106,6 @@ ManLead_Dat <- subset(ManLead_Dat, select = -c(LEADDATE))
 
 ManLead_Dat$INCEPTIONDATE <- DateConv(ManLead_Dat$INCEPTIONDATE)
 
-#
-# Clean ID Number, birthdate and age
-#
-
-# CLIENTIDTYPE "OTHER ID" "RSA ID"
-# Determine SA and NON SA ID
-ManLead_Dat$CLIENTIDNUMBER <- gsub(" ", "", gsub("[^[:alnum:] ]", "", toupper(ManLead_Dat$CLIENTIDNUMBER)))
-ManLead_Dat$CLIENTIDTYPE   <- "OTHER ID"
-
-ValidOnCount <- CountAllNums(ManLead_Dat$CLIENTIDNUMBER) == 13
-
-# Parts of an SA ID:
-YY  <- as.numeric(substr(ManLead_Dat$CLIENTIDNUMBER,  1,  2)) # Year  of Birth (note that 1900 and 2000 will both be 00)
-MM  <- as.numeric(substr(ManLead_Dat$CLIENTIDNUMBER,  3,  4)) # Month of Birth
-DD  <- as.numeric(substr(ManLead_Dat$CLIENTIDNUMBER,  5,  6)) # Day   of Birth   
-G   <- as.numeric(substr(ManLead_Dat$CLIENTIDNUMBER,  7,  7)) # Gender ([0, 4] = Female and [5, 9] = Male)
-SSS <- as.numeric(substr(ManLead_Dat$CLIENTIDNUMBER,  8, 10)) # Birth registration number
-C   <- as.numeric(substr(ManLead_Dat$CLIENTIDNUMBER, 11, 11)) # SA citizen indicator (0 = SA, 1 = Not)
-A   <- as.numeric(substr(ManLead_Dat$CLIENTIDNUMBER, 12, 12)) # Number no longer used. Prior race indicator
-Z   <- as.numeric(substr(ManLead_Dat$CLIENTIDNUMBER, 13, 13)) # A checksum indicator se Luhn algorithm
-
-YY [ValidOnCount == FALSE] <- NA
-MM [ValidOnCount == FALSE] <- NA
-DD [ValidOnCount == FALSE] <- NA
-G  [ValidOnCount == FALSE] <- NA
-SSS[ValidOnCount == FALSE] <- NA
-C  [ValidOnCount == FALSE] <- NA
-A  [ValidOnCount == FALSE] <- NA
-Z  [ValidOnCount == FALSE] <- NA
-
-Odd_Sum <- as.numeric(substr(ManLead_Dat$CLIENTIDNUMBER, 1, 1)) + as.numeric(substr(ManLead_Dat$CLIENTIDNUMBER, 3, 3)) + 
-  as.numeric(substr(ManLead_Dat$CLIENTIDNUMBER, 5, 5)) + as.numeric(substr(ManLead_Dat$CLIENTIDNUMBER, 7, 7)) + 
-  as.numeric(substr(ManLead_Dat$CLIENTIDNUMBER, 9, 9)) + as.numeric(substr(ManLead_Dat$CLIENTIDNUMBER, 11, 11))
-
-Even_Sum <- sumSplitValues(as.character(
-  2 * as.numeric(paste(substr(ManLead_Dat$CLIENTIDNUMBER, 2, 2), substr(ManLead_Dat$CLIENTIDNUMBER, 4, 4), 
-                       substr(ManLead_Dat$CLIENTIDNUMBER, 6, 6), substr(ManLead_Dat$CLIENTIDNUMBER, 8, 8), 
-                       substr(ManLead_Dat$CLIENTIDNUMBER, 10, 10), substr(ManLead_Dat$CLIENTIDNUMBER, 12, 12), sep = ""))))
-
-LuhnVal <- 10 - (Odd_Sum + Even_Sum) %% 10
-
-LuhnVal[ValidOnCount == FALSE] <- NA
-
-ValidOnMost <- (YY  %in% seq(0, 99)  &
-                  MM  %in% seq(1, 12)  &
-                  G   %in% seq(0, 10)  &
-                  SSS %in% seq(0, 999) &
-                  C   %in% c(0, 1)     &
-                  A   %in% seq(0, 9)   &
-                  Z    ==  LuhnVal)
-
-ValidOnMost[ValidOnCount == FALSE] <- NA
-
-ValidOnAll <- (MM == 2 & DD <= 28 & YY %% 4 == 0 |
-                 MM == 2 & DD <= 29 & YY %% 4 != 0 |
-                 MM %in% c(4, 6, 9, 11) & DD <= 30 |
-                 MM %in% c(1, 3, 5, 7, 8, 10, 12) & DD <= 31)
-
-ValidOnAll[is.na(ValidOnCount)] <- NA
-
-YY[is.na(ValidOnAll)] <- NA
-MM[is.na(ValidOnAll)] <- NA
-DD[is.na(ValidOnAll)] <- NA
-
-ManLead_Dat$CLIENTIDTYPE[ValidOnAll] <- "RSA ID"
-
-# Clean Birthdate
-Cur_Year <- as.numeric(substr(format(Sys.Date(), "%Y"), 3, 4))
-B_Days   <- as.Date(paste(ifelse(YY <= Cur_Year, as.numeric(paste(20, YY, sep = "")), as.numeric(paste(19, YY, sep = ""))),
-                          MM,
-                          DD, sep = "-"))
-
-Orig_B_Days <- DateConv(ManLead_Dat$CLIENTBIRTHDATE)
-
-ManLead_Dat$CLIENTBIRTHDATE <- B_Days
-ManLead_Dat$CLIENTBIRTHDATE[is.na(ManLead_Dat$CLIENTBIRTHDATE)] <- Orig_B_Days[is.na(ManLead_Dat$CLIENTBIRTHDATE)]
-
-rm(YY, MM, DD, G, SSS, C, A, Z, LuhnVal, ValidOnCount, ValidOnMost, ValidOnAll, Cur_Year, Orig_B_Days, B_Days, Odd_Sum, Even_Sum)
-
-# Get Age at purchase date
-ManLead_Dat$CLIENTBIRTHDATE[ManLead_Dat$CLIENTBIRTHDATE == as.Date("1899-12-30")] <- NA
-ManLead_Dat$CLIENTAGE <- as.numeric(ManLead_Dat$INCEPTIONDATE - ManLead_Dat$CLIENTBIRTHDATE) / 365.25 
-
 # Cutting off the max and min Age (from model)
 ManLead_Dat$CLIENTAGE[ManLead_Dat$CLIENTAGE < Model$var.levels[which(Model$var.names == "CLIENTAGE")][[1]][1]]  <- Model$var.levels[which(Model$var.names == "CLIENTAGE")][[1]][1]
 ManLead_Dat$CLIENTAGE[ManLead_Dat$CLIENTAGE > Model$var.levels[which(Model$var.names == "CLIENTAGE")][[1]][11]] <- Model$var.levels[which(Model$var.names == "CLIENTAGE")][[1]][11]
@@ -197,15 +121,6 @@ ManLead_Dat <- subset(ManLead_Dat, select = -TooYoung)
 # Clean Marital Status
 #
 
-ManLead_Dat$MARITALSTATUS <- gsub(" ", "", gsub("[^[:alnum:] ]", "", toupper(ManLead_Dat$MARITALSTATUS)))
-
-ManLead_Dat$MARITALSTATUS[grepl("SINGLE", ManLead_Dat$MARITALSTATUS)]     <-  "SINGLE"
-ManLead_Dat$MARITALSTATUS[grepl("ENGAGED", ManLead_Dat$MARITALSTATUS)]    <-  "ENGAGED"
-ManLead_Dat$MARITALSTATUS[grepl("MARRIED", ManLead_Dat$MARITALSTATUS)]    <-  "MARRIED"
-ManLead_Dat$MARITALSTATUS[grepl("SEPARATED", ManLead_Dat$MARITALSTATUS)]  <-  "DIVORCED"
-ManLead_Dat$MARITALSTATUS[grepl("DIVORCED", ManLead_Dat$MARITALSTATUS)]   <-  "DIVORCED"
-ManLead_Dat$MARITALSTATUS[grepl("WIDOW", ManLead_Dat$MARITALSTATUS)]      <-  "WIDOW"
-
 DB_MS <- Model$var.levels[which(Model$var.names == "MARITALSTATUS")][[1]]
 
 ManLead_Dat$MARITALSTATUS[!(ManLead_Dat$MARITALSTATUS %in% DB_MS)] <- NA
@@ -215,13 +130,6 @@ rm(DB_MS)
 #
 # Clean Title 
 #
-
-ManLead_Dat$CLIENTTITLE <- gsub(" ", "", gsub("[^[:alnum:] ]", "", toupper(ManLead_Dat$CLIENTTITLE)))
-
-ManLead_Dat$CLIENTTITLE[grepl("REV", ManLead_Dat$CLIENTTITLE)]     <-  "REV"
-ManLead_Dat$CLIENTTITLE[grepl("PROF", ManLead_Dat$CLIENTTITLE)]    <-  "PROF"
-ManLead_Dat$CLIENTTITLE[grepl("ADV", ManLead_Dat$CLIENTTITLE)]     <-  "ADV"
-ManLead_Dat$CLIENTTITLE[grepl("DOCTOR", ManLead_Dat$CLIENTTITLE)]  <-  "DR"
 
 DB_TL <- Model$var.levels[which(Model$var.names == "CLIENTTITLE")][[1]]
 
@@ -622,12 +530,13 @@ rm(Enrico_data)
 
 #########################################################################
 
+ManLead_Dat$ZLAGENT <- ""
 
 names(ManLead_Dat)[!(names(ManLead_Dat) %in% Model$var.names)]
 Model$var.names[!(Model$var.names %in% names(ManLead_Dat))]
 
-# Allocate ----------------------------------------------------------------
 
+# Allocate ----------------------------------------------------------------
 Allocation_Dat <- separate(Allocation_Dat, col = TEAM, into = c("Aff1", "Aff2"))
 Allocation_Dat$Aff1 <- gsub(" ", "", gsub("[^[:alpha:] ]", "", toupper(Allocation_Dat$Aff1)))
 Allocation_Dat$Aff2 <- gsub(" ", "", gsub("[^[:alpha:] ]", "", toupper(Allocation_Dat$Aff2)))
@@ -642,9 +551,7 @@ Allocation_Dat$ZLAGENT <- gsub(" ", "", gsub("[^[:alpha:] ]", "", toupper(Alloca
 
 Affins <- c(unique(Allocation_Dat$Aff2), unique(Allocation_Dat$Aff1)) 
 Affins <- Affins[!is.na(Affins)]
-
-ManLead_Dat$TempAFFINITY <- ManLead_Dat$AFFINITY
-ManLead_Dat$TempAFFINITY[!(ManLead_Dat$TempAFFINITY %in% Affins)] <- "OTHER"
+Affins <- unique(Affins)
 
 for (aff in Affins) {
   
@@ -660,6 +567,9 @@ for (aff in Affins) {
   }
   
 }
+
+ManLead_Dat$TempAFFINITY <- ManLead_Dat$AFFINITY
+ManLead_Dat$TempAFFINITY[!(ManLead_Dat$TempAFFINITY %in% Affins)] <- "OTHER"
 
 LeadOut <- data.frame(ZLAGENT = as.character(),
                       Pred    = as.numeric(),
@@ -689,9 +599,12 @@ for (aff in Affins) {
       SubsetData$Pred <- Preds
       
       MaxID <- SubsetData$ID[which(SubsetData$Pred == max(SubsetData$Pred))][1]
+      PredVal <- SubsetData$Pred[SubsetData$ID == MaxID]
+      PredVal[is.na(PredVal)] <- 0
+      PredVal <- max(PredVal)
       
       UpdateR <- data.frame(ZLAGENT = Allocation_Dat$ZWINGMASTER[Allocation_Dat$ZLAGENT == agent],
-                            Pred    = SubsetData$Pred[SubsetData$ID == MaxID],
+                            Pred    = PredVal,
                             ID      = MaxID)
       
       LeadOut <- rbind(LeadOut, UpdateR)
@@ -713,32 +626,67 @@ for (aff in Affins) {
   
 }
 
+ManLead_Dat2 <- merge(ManLead_Dat, LeadOut, by.x = "ID", by.y = "ID", all.y = TRUE)
+ManLead_DatOrig <- merge(ManLead_DatOrig, LeadOut, by.x = "ID", by.y = "ID") 
 
-ManLead_Dat2 <- merge(ManLead_Dat, LeadOut, by.x = "ID", by.y = "ID", all.x = TRUE)
+d_time <- gsub(" ", "_", Sys.time())
+d_time <- gsub("-", "_", d_time)
+d_time <- gsub(":", "_", d_time)
 
-ManLead_Dat2 <- subset(ManLead_Dat2, select = -ZLAGENT.x)
+ManLead_Dat2$COMCAT <- ifelse(grepl("BARLO", gsub(" ", "", toupper(ManLead_Dat2$AFFINITY))), "E", "A")
+ManLead_DatOrig$COMCAT <- ifelse(grepl("BARLO", gsub(" ", "", toupper(ManLead_DatOrig$AFFINITY))), "E", "A")
+ManLead_DatOrig$CLIENTBIRTHDATE <- DateConv(ManLead_DatOrig$CLIENTBIRTHDATE)
+ManLead_DatOrig$INCEPTIONDATE <- DateConv(ManLead_DatOrig$INCEPTIONDATE)
 
-colnames(ManLead_Dat2)[colnames(ManLead_Dat2) == "ZLAGENT.y"] <- "ZLAGENT"
+ManLead_DatOrig <- ManLead_DatOrig %>% arrange(desc(Pred))
 
-# OUT <- ManLead_Dat2 %>% group_by(AFFINITY, ZLAGENT) %>% summarise(n = n())
-# 
-write.csv(ManLead_Dat2, "Results.csv")
+write.csv(ManLead_Dat2, paste(Path, "/Output/New/Results_", d_time, ".csv", sep = ""))
 
-# Check increase of out-of-afinity assignment
-# 
-# SubsetData <- ManLead_Dat2[ManLead_Dat2$CLIENTIDNUMBER == 5809205018087, ]
-# 
-# SubsetData <- SubsetData[, Model$var.names]
-# 
-# SubsetData <- SubsetData[rep(seq_len(nrow(SubsetData)), each = length(unlist(Model$var.levels[17]))), ]
-# 
-# SubsetData$ZLAGENT <- as.factor(unlist(Model$var.levels[17]))
-# 
-# Preds <- predict(object = Model,
-#                  newdata = SubsetData,
-#                  n.trees = ntrees,
-#                  type = "response")
-# SubsetData$Pred <- Preds
+# Insert to DB ---------------------------------------------------------------
+# Remove singel quotes
+del <- plyr::colwise(function(x) str_replace_all(x, "'", ""))
+ManLead_DatOrig <- del(ManLead_DatOrig)
+
+# Insert
+for (i in 1:nrow(ManLead_DatOrig)) {
+  
+  vals = paste(ManLead_DatOrig$CLIENTTITLE[i], ManLead_DatOrig$CLIENTFIRSTNAME[i], ManLead_DatOrig$CLIENTLASTNAME[i], 
+               ManLead_DatOrig$CLIENTIDNUMBER[i], ManLead_DatOrig$CLIENTBIRTHDATE[i], ManLead_DatOrig$MARITALSTATUS[i],
+               ManLead_DatOrig$CLIENTPOSTALADDRESS1[i], ManLead_DatOrig$CLIENTPOSTALADDRESS2[i], ManLead_DatOrig$CLIENTPOSTALADDRESS3[i],
+               ManLead_DatOrig$CLIENTPOSTALADDRESS4[i], ManLead_DatOrig$CLIENTPOSTALADDRESSPOSTALCODE[i],
+               ManLead_DatOrig$CLIENTOCCUPATIONNAME[i], ManLead_DatOrig$CLIENTWORKTELEPHONENUMBER[i], 
+               ManLead_DatOrig$CLIENTHOMETELEPHONENUMBER[i], ManLead_DatOrig$CLIENTMOBILENUMBER[i], ManLead_DatOrig$SALESPERSON[i], 
+               ManLead_DatOrig$VEHICLEVALUE[i], ManLead_DatOrig$FINANCETERM[i], ManLead_DatOrig$DEPOSITVALUE[i], 
+               ManLead_DatOrig$INCEPTIONDATE[i], ManLead_DatOrig$RESIDUALVALUE[i], ManLead_DatOrig$FINANCEAMOUNT[i], 
+               ManLead_DatOrig$MODEL[i], ManLead_DatOrig$FIRSTREGISTRATIONYEAR[i], ManLead_DatOrig$VEHICLEUSE[i], 
+               ManLead_DatOrig$ODOMETERREADING[i], ManLead_DatOrig$DOCINSURANCECOMPANYNAME[i], ManLead_DatOrig$REGISTRATIONNUMBER[i], 
+               "AccessLife", ManLead_DatOrig$ZLAGENT[i], "Red1.png", "Allocated", ManLead_DatOrig$COMCAT[i], 
+               ManLead_DatOrig$BRANCHNAME[i], ManLead_DatOrig$AFFINITY[i], ManLead_DatOrig$DOCFINANCECOMPANYNAME[i], today, 
+               ManLead_DatOrig$TRANSACTIONNUMBER[i], today, ManLead_DatOrig$Pred[i], ManLead_DatOrig$PRODUCTTYPECATEGORYNAME[i], 
+               sep = "', '")
+  
+  vals = paste("'", vals, "'", sep = "") 
+  
+  insertQuery <- paste("INSERT INTO AccessLife_Sales_File_Lead_Data ",
+                       "(`Title`,`First name`, `surname`, `id number`, `Date of Birth`, `Marital status`, ",
+                       "`Postal Address 1`, `Postal Address 2`, `Postal Address 3`, `Postal Address 4`, `Postal Address Code`, ",
+                       "`Occupation`, `Work Tel`, `Home Tel`, `Cellphone`, `Broker - Finance Consultant`, ", 
+                       "`Purchase price`, `Term`, `Dep or Trade in`, `Purchase Date`, `Residual`, `Principal Debt`, ", 
+                       "`Vehicle Make`, `year Model`, `Vehicle use`, `Odometer kms`, `Short Term Insurer`, ", 
+                       "`Registration No`, `Campaign`, `ZwingMaster`, `Staticon`, `Status`, `COMCat`, `Selling Dealer`, ",
+                       "`Affinity`, `Financing Bank`, `Lead Date`, `Platform Number` , `First Allocation Date`, `gbm_Pred`,", 
+                       "`retrenchment_allowed`) ",
+                       "VALUES(", vals, ")",
+                       sep = "")
+  
+  dbSendQuery(mydb, insertQuery)
+  
+  print(i)
+  
+}
+
+
+
 
 
 

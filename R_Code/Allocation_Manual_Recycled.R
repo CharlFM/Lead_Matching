@@ -11,6 +11,56 @@ source(paste(Path, "/R_Code/OpenDB.R", sep = ""))
 
 today <- as.character(Sys.Date())
 
+DateSeq <- seq(as.Date(today), by = "-1 day", length.out = 7)
+DateSeq <- data.frame(Dates = DateSeq, Days = weekdays(DateSeq))
+Date.FM <- DateSeq$Dates[DateSeq$Days == "Monday"]
+
+# Find number of leads per agent for the week
+agent.query <- paste("SELECT * ",
+                     "FROM agents ",
+                     "WHERE `Active` = 'YES' ",
+                     sep = "")
+Agents_List <- dbGetQuery(my_new_db, agent.query)
+Agents_Count <- as.numeric(nrow(Agents_List))
+
+# Total Leads allocated on previous Monday
+query <- paste("SELECT COUNT(`AutoNumber`) ",
+               "FROM AccessLife_Sales_File_Lead_Data ",
+               "WHERE `First Allocation Date` = '", Date.FM ,"' ",
+               "AND Affinity <> 'Auto Pedigree'",
+               sep = "")
+
+MonLeads <- dbGetQuery(mydb, query)
+
+Target <- 0
+if (weekdays(as.Date(today)) == "Wednesday") {
+  Target <- MonLeads/Agents_Count
+  Target <- ceiling(Target * 0.5)   # half way through week
+} else if (weekdays(as.Date(today)) == "Thursday") {
+  Target <- MonLeads/Agents_Count
+  Target <- ceiling(Target * 0.6)   # 3/5 through week
+} else if (weekdays(as.Date(today)) == "Friday") {
+  Target <- MonLeads/Agents_Count
+  Target <- ceiling(Target * 0.8)   # 4/5 through week
+}
+
+
+# See if they should be recycled
+query <- paste("SELECT `ZwingMaster`, COUNT(`AutoNumber`) as `Count` ",
+               "FROM AccessLife_Sales_File_Lead_Data ",
+               "WHERE `Status` = 'Allocated' AND `UW Status` IS NULL AND `QA Status` IS NULL ",
+               "AND Affinity <> 'Auto Pedigree' AND ZwingMaster <> 'Douglas Gwanyanya' ",
+               "AND `First Allocation Date` = '", Date.FM, "'",
+               "GROUP BY `ZwingMaster`, `First Allocation Date` ",
+               "ORDER BY `Count`",
+               sep = "")
+CurAgentCount <- dbGetQuery(mydb, query)
+
+CurAgentCount <- CurAgentCount[CurAgentCount$Count > Target, ]
+
+Rec.Agents <- paste("`ZwingMaster` = '", CurAgentCount$ZwingMaster, "'", sep = "")
+Rec.Agents <- paste(Rec.Agents, sep = "", collapse = " OR ") 
+
 ntrees <- max(Model$trees.fitted)
 # Loads manual allocation Data
 DB_Names <- read_excel(paste(Path, "/Data/Lead_Col_Names/DBNAMES.xlsx", sep = ""),
@@ -20,15 +70,15 @@ DB_Names <- read_excel(paste(Path, "/Data/Lead_Col_Names/DBNAMES.xlsx", sep = ""
 query <- paste("SELECT * ",
               "FROM AccessLife_Sales_File_Lead_Data ",
               "WHERE `Status` = 'Allocated' ",
-              "AND `First Allocation Date` BETWEEN '", as.Date(Sys.Date()) - months(6), "' AND '", as.Date(Sys.Date()),"' ",
-              "AND `Lead Date` <> '",today ,"' ",
-              "AND `UW Status` IS NULL AND `QA Status` IS NULL AND Affinity <> 'Auto Pedigree'",
+              "AND `First Allocation Date` BETWEEN '", as.Date(today) - months(6), "' AND '", as.Date(today),"' ",
+              "AND `Lead Date` <> '", today,"' ",
+              "AND `UW Status` IS NULL AND `QA Status` IS NULL AND (", Rec.Agents, ")",
               sep = "")
 
 ManLead_Dat <- dbGetQuery(mydb, query)
 
-colnames(ManLead_Dat)  <- gsub(" ","", gsub("[^[:alnum:] ]", "", gsub("X.","", toupper(colnames(ManLead_Dat)))))
-DB_Names$Original <- gsub(" ","", gsub("[^[:alnum:] ]", "", gsub("X.","", toupper(DB_Names$Original))))
+colnames(ManLead_Dat)  <- gsub(" ", "", gsub("[^[:alnum:] ]", "", gsub("X.", "", toupper(colnames(ManLead_Dat)))))
+DB_Names$Original      <- gsub(" ", "", gsub("[^[:alnum:] ]", "", gsub("X.", "", toupper(DB_Names$Original))))
 
 ManLead_Dat <- ManLead_Dat[, colnames(ManLead_Dat) %in% DB_Names$Original]
 colnames(ManLead_Dat) <- DB_Names$New[match(colnames(ManLead_Dat), DB_Names$Original)]
@@ -177,7 +227,7 @@ DD[is.na(ValidOnAll)] <- NA
 ManLead_Dat$CLIENTIDTYPE[ValidOnAll] <- "RSA ID"
 
 # Clean Birthdate
-Cur_Year <- as.numeric(substr(format(Sys.Date(), "%Y"), 3, 4))
+Cur_Year <- as.numeric(substr(format(as.Date(today), "%Y"), 3, 4))
 B_Days   <- as.Date(paste(ifelse(YY <= Cur_Year, as.numeric(paste(20, YY, sep = "")), as.numeric(paste(19, YY, sep = ""))),
                           MM,
                           DD, sep = "-"))
@@ -373,7 +423,7 @@ ManLead_Dat$BRANCHNAME[!(ManLead_Dat$BRANCHNAME %in% DB_Bn)] <- "OTHER"
 rm(DB_Bn)
 
 # Fix time to call
-ManLead_Dat$TIMETOCALL     <- as.numeric(as.Date(Sys.Date()) - ManLead_Dat$INCEPTIONDATE)
+ManLead_Dat$TIMETOCALL     <- as.numeric(as.Date(today) - ManLead_Dat$INCEPTIONDATE)
 
 ManLead_Dat <- subset(ManLead_Dat, select = -INCEPTIONDATE)
 
@@ -580,7 +630,7 @@ ManLead_Dat$AFFINITY <- as.character(ManLead_Dat$AFFINITY)
 
 #########################################################################
 
-ManLead_Dat$LEADPICKUPDATE <- as.Date(Sys.Date())
+ManLead_Dat$LEADPICKUPDATE <- as.Date(today)
 
 #########################################################################
 
@@ -595,7 +645,7 @@ ManLead_Dat$DAYTIME[ManLead_Dat$LEADPICKUPTIME %in% 19:24] <- "Night"
 
 #########################################################################
 
-ManLead_Dat$WEEKDAY  <- weekdays(Sys.Date())
+ManLead_Dat$WEEKDAY  <- weekdays(as.Date(today))
 
 #########################################################################
 
@@ -612,7 +662,7 @@ ManLead_Dat$WEEKTIME[ManLead_Dat$WEEKDAY == "Saturday" | ManLead_Dat$WEEKDAY == 
 #########################################################################
 
 EnricoURL   <- paste("http://kayaposoft.com/enrico/json/v1.0/index.php?action=getPublicHolidaysForDateRange&fromDate=01-01-2013&toDate=31-12-",
-                     format(Sys.Date(),"%Y"), 
+                     format(as.Date(today),"%Y"), 
                      "&country=zaf&region=all",
                      sep = "")
 Enrico_data <- fromJSON(EnricoURL)
@@ -648,10 +698,6 @@ LeadOut <- data.frame(ZLAGENT = as.character(),
 
 allocated  <- min(nrow(ManLead_Dat), 35 * nrow(Agents_List))
 Counter    <- 0
-
-DateSeq <- seq(as.Date(Sys.Date()), by = "-1 day", length.out = 7)
-DateSeq <- data.frame(Dates = DateSeq, Days = weekdays(DateSeq))
-Date.FM <- DateSeq$Dates[DateSeq$Days == "Monday"]
 
 SubsetData.FM   <- ManLead_Dat[ManLead_Dat$FIRSTALLOCATIONDATE == Date.FM, ]
 SubsetData.Rest <- ManLead_Dat[ManLead_Dat$FIRSTALLOCATIONDATE != Date.FM, ]
@@ -696,7 +742,7 @@ while (allocated >= Counter) {
     
     print(paste(Counter, "of", allocated))
     
-    if (nrow(SubsetData) == 0) break
+    if (nrow(SubsetData) == 0 | allocated <= Counter) break
     
   }
   
@@ -716,7 +762,9 @@ write.csv(ManLead_Dat2, paste(Path, "/Output/Recycled/Results_", d_time, ".csv",
 for (i in 1:nrow(ManLead_Dat2)) {
   
   updateQuery <- paste("UPDATE AccessLife_Sales_File_Lead_Data ",
-                       "SET ZwingMaster = '", ManLead_Dat2$ZLAGENT[i],"', `Lead Date` = '", today ,"' ",
+                       "SET ZwingMaster = '", ManLead_Dat2$ZLAGENT[i], "', ",
+                       "`Lead Date` = '", today ,"', ",
+                       "`gbm_Pred` = '", ManLead_Dat2$Pred[i], "' ",
                        "WHERE AutoNumber = '", ManLead_Dat2$LEADNUMBER[i], "'",
                        sep = "")
   dbSendQuery(mydb, updateQuery)
