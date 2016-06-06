@@ -1,25 +1,12 @@
-
-# Initialize -------------------------------------------------------------
-
-# Clears Memory
-rm(list = ls())
-gc()
-
-Path <- getwd()
-
-source(paste(Path, "/R_Code/Initialize.R", sep = ""))
-
 # Loads some additional data (Race/City/...) ------------------------------
-
 source(paste(Path, "/R_Code/Load_Other_Data.R", sep = ""))
 
 # Define File Lists -------------------------------------------------------
-
 lead_File_List      <-  list.files(paste(Path, "/Data/Lead_Data", sep = ""))
+lead_File_List      <- lead_File_List[lead_File_List != "History"]
 num_lead_file       <-  length(lead_File_List)     #  Number of files in folder 
 
 # Loads and cleans Barlow Data --------------------------------------------
-
 # Loads Data
 bar <- grep("MARKETINGREPORT", gsub(" ", "", toupper(lead_File_List)))
 
@@ -71,8 +58,10 @@ postadr <- data.frame(t(do.call(cbind, l)))
 colnames(postadr) <- paste("CLIENTPOSTALADDRESS", seq(1:ncol(postadr)), sep = "")
 
 codepos <- ncol(postadr) - rowSums(is.na(postadr))
+codepos[codepos == 0] <- 1
+t <- cbind(1:nrow(postadr), codepos)
 
-Pos_Code <- as.data.frame(as.numeric(postadr[cbind(1:nrow(postadr), codepos)]))
+Pos_Code <- as.data.frame(as.numeric(postadr[t]))
 colnames(Pos_Code) <- "CLIENTPOSTALADDRESSPOSTALCODE"
 
 postadr2 <- data.frame(lapply(postadr, as.character), stringsAsFactors = FALSE)
@@ -86,7 +75,7 @@ BAR_DAT <- subset(BAR_DAT, select = -POSTALADDRESS)
 
 BAR_DAT <- cbind(BAR_DAT, postadr, Pos_Code)
 
-BAR_DAT$AFFINITY <- "BARLOW"
+BAR_DAT$AFFINITY <- "Barloworld"
 BAR_DAT$SOURCE   <- "BARLOW"
 
 # Loads and Cleans Signio Data --------------------------------------------
@@ -153,45 +142,47 @@ lead_File_List <- lead_File_List[!(counter %in% remove)]
 
 for(leadfile in 1:num_lead_file){
   
-  # Check to see if CSV should be created
   file_name <- lead_File_List[leadfile]
   
   Sheets <- getSheets(loadWorkbook(paste(Path, "/Data/Lead_Data/", file_name, sep = "")))
-  Sheet  <- Sheets[grep("CONS", gsub(" ", "", toupper(Sheets)))] # Find sheet name "CONSOLIDATED" - sometimes it is spelled wrong
+  Sheets <- Sheets[toupper(Sheets) != "CONTENTS"]
   
-  lead_Data <- read_excel(paste(Path, "/Data/Lead_Data/", file_name, sep = ""),
-                          sheet = Sheet,
-                          col_names = TRUE,
-                          skip = 8)
-  
-  lead_Data <- as.data.frame(lead_Data)
-  
-  colnames(lead_Data)  <-  gsub(" ","", gsub("[^[:alnum:] ]", "", toupper(colnames(lead_Data))))
-  
-  lead_Data <- lead_Data[(lead_Data$TRANSACTIONID != "" & !is.na(lead_Data$TRANSACTIONID)), ]
-  
-  lead_Data$TAKEN <- 1
-  
-  lead_Data[] <- lapply(lead_Data, as.character)
-  
-  if (length(grep("TAKENUP", gsub(" ", "", file_name))) == 0) { lead_Data$TAKEN <- 0 }
-  
-  if(leadfile == 1) {
+  for (sht in Sheets) {
+    lead_Data <- read_excel(paste(Path, "/Data/Lead_Data/", file_name, sep = ""),
+                            sheet     = sht,
+                            col_names = TRUE,
+                            skip      = 8)
     
-    All_lead_Data <- lead_Data
+    lead_Data <- as.data.frame(lead_Data)
     
-  } else{
+    colnames(lead_Data)  <-  gsub(" ","", gsub("[^[:alnum:] ]", "", toupper(colnames(lead_Data))))
     
-    common_cols <- intersect(colnames(All_lead_Data), colnames(lead_Data)) # Combine only the common columns (in case of missmatches)
+    lead_Data <- lead_Data[(lead_Data$TRANSACTIONID != "" & !is.na(lead_Data$TRANSACTIONID)), ]
     
-    All_lead_Data <- rbind(
-      subset(All_lead_Data,  select = common_cols), 
-      subset(lead_Data,      select = common_cols)
-    )
+    lead_Data$TAKEN <- 0
+    
+    lead_Data[] <- lapply(lead_Data, as.character)
+    
+    if (grepl("TAKENUP", gsub(" ", "", file_name))) { lead_Data$TAKEN <- 1 }
+    
+    if(leadfile == 1) {
+      
+      All_lead_Data <- lead_Data
+      
+    } else{
+      
+      common_cols <- intersect(colnames(All_lead_Data), colnames(lead_Data)) # Combine only the common columns (in case of missmatches)
+      
+      All_lead_Data <- rbind(
+        subset(All_lead_Data,  select = common_cols), 
+        subset(lead_Data,      select = common_cols)
+      )
+      
+    }
+    
+    print(lead_File_List[leadfile]) 
     
   }
-  
-  print(lead_File_List[leadfile])
   
 } 
 
@@ -222,12 +213,10 @@ All_lead_Data <- All_lead_Data[!is.na(All_lead_Data$TRANSACTIONNUMBER), ]
 
 rm(lead_File_List, num_lead_file, sig, bar, SIG_DAT, BAR_DAT, BAR_Names, SIG_Names, clID, n, l,
    postadr, postadr2, postadr3, codepos, Pos_Code, resadr, res_Pos_Code, posadr, pos_Pos_Code, remove, counter,
-   num_lead_file, lead_File_List, fileXLSDate, common_cols, file_name, leadfile, lead_Data, SIR_Names)
+   num_lead_file, lead_File_List, fileXLSDate, common_cols, file_name, leadfile, lead_Data, SIR_Names, Sheets, sht, t)
 
 # Cleans All Data
 source(paste(Path, "/R_Code/CleanUp.R", sep = "")) 
-
-write.csv(All_lead_Data, "Data_Out.csv")
 
 
 

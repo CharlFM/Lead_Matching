@@ -60,13 +60,13 @@ All_lead_Data <- subset(All_lead_Data, select = -c(CLIENTNAME, CLIENTSURNAME, RA
 
 All_lead_Data$CLIENTTITLE <- gsub(" ", "", gsub("[^[:alnum:] ]", "", toupper(All_lead_Data$CLIENTTITLE)))
 
-All_lead_Data$CLIENTTITLE[grepl("REV", All_lead_Data$CLIENTTITLE)]     <-  "REV"
-All_lead_Data$CLIENTTITLE[grepl("PROF", All_lead_Data$CLIENTTITLE)]    <-  "PROF"
-All_lead_Data$CLIENTTITLE[grepl("ADV", All_lead_Data$CLIENTTITLE)]     <-  "ADV"
-All_lead_Data$CLIENTTITLE[grepl("DOCTOR", All_lead_Data$CLIENTTITLE)]  <-  "DR"
-All_lead_Data$CLIENTTITLE[grepl("MNR", All_lead_Data$CLIENTTITLE)]     <-  "MR"
-All_lead_Data$CLIENTTITLE[grepl("MEV", All_lead_Data$CLIENTTITLE)]     <-  "MRS"
-All_lead_Data$CLIENTTITLE[grepl("MEJ", All_lead_Data$CLIENTTITLE)]     <-  "MISS"
+All_lead_Data$CLIENTTITLE[grepl("REV", All_lead_Data$CLIENTTITLE)]  <-  "REV"
+All_lead_Data$CLIENTTITLE[grepl("PROF", All_lead_Data$CLIENTTITLE)] <-  "PROF"
+All_lead_Data$CLIENTTITLE[grepl("ADV", All_lead_Data$CLIENTTITLE)]  <-  "ADV"
+All_lead_Data$CLIENTTITLE[grepl("DOC", All_lead_Data$CLIENTTITLE)]  <-  "DR"
+All_lead_Data$CLIENTTITLE[grepl("MNR", All_lead_Data$CLIENTTITLE)]  <-  "MR"
+All_lead_Data$CLIENTTITLE[grepl("MEV", All_lead_Data$CLIENTTITLE)]  <-  "MRS"
+All_lead_Data$CLIENTTITLE[grepl("MEJ", All_lead_Data$CLIENTTITLE)]  <-  "MISS"
 
 All_lead_Data$CLIENTTITLE[!(All_lead_Data$CLIENTTITLE %in% c("REV", "PROF", "ADV", "DR", "MR", "MRS", "MS", "MISS"))]  <- NA
 
@@ -74,12 +74,12 @@ All_lead_Data$CLIENTTITLE[!(All_lead_Data$CLIENTTITLE %in% c("REV", "PROF", "ADV
 
 All_lead_Data$MARITALSTATUS <- gsub(" ", "", gsub("[^[:alnum:] ]", "", toupper(All_lead_Data$MARITALSTATUS)))
 
-All_lead_Data$MARITALSTATUS[grepl("SINGLE", All_lead_Data$MARITALSTATUS)]     <-  "SINGLE"
-All_lead_Data$MARITALSTATUS[grepl("ENGAGED", All_lead_Data$MARITALSTATUS)]    <-  "ENGAGED"
-All_lead_Data$MARITALSTATUS[grepl("MARRIED", All_lead_Data$MARITALSTATUS)]    <-  "MARRIED"
-All_lead_Data$MARITALSTATUS[grepl("SEPARATED", All_lead_Data$MARITALSTATUS)]  <-  "DIVORCED"
-All_lead_Data$MARITALSTATUS[grepl("DIVORCED", All_lead_Data$MARITALSTATUS)]   <-  "DIVORCED"
-All_lead_Data$MARITALSTATUS[grepl("WIDOW", All_lead_Data$MARITALSTATUS)]      <-  "WIDOW"
+All_lead_Data$MARITALSTATUS[grepl("SIN", All_lead_Data$MARITALSTATUS)]  <-  "SINGLE"
+All_lead_Data$MARITALSTATUS[grepl("ENG", All_lead_Data$MARITALSTATUS)]  <-  "ENGAGED"
+All_lead_Data$MARITALSTATUS[grepl("MAR", All_lead_Data$MARITALSTATUS)]  <-  "MARRIED"
+All_lead_Data$MARITALSTATUS[grepl("SEP", All_lead_Data$MARITALSTATUS)]  <-  "DIVORCED"
+All_lead_Data$MARITALSTATUS[grepl("DIV", All_lead_Data$MARITALSTATUS)]  <-  "DIVORCED"
+All_lead_Data$MARITALSTATUS[grepl("WID", All_lead_Data$MARITALSTATUS)]  <-  "WIDOW"
 
 All_lead_Data$MARITALSTATUS[!(All_lead_Data$MARITALSTATUS %in% c("SINGLE", "ENGAGED", "MARRIED", "DIVORCED", "WIDOW"))]  <- NA
 
@@ -186,7 +186,7 @@ for (f in ContactFields) {
   All_lead_Data[[f]] <- as.numeric(gsub("[^0-9]", "", All_lead_Data[[f]]))
   All_lead_Data[[f]][!is.na(All_lead_Data[[f]]) & as.numeric(substr(All_lead_Data[[f]], 1, 2)) == 27] <- 
     substrRight(All_lead_Data[[f]][!is.na(All_lead_Data[[f]]) & as.numeric(substr(All_lead_Data[[f]], 1, 2)) == 27], 9)
-  #  All_lead_Data[[f]][!is.na(All_lead_Data[[f]])] <- paste("0", substrRight(All_lead_Data[[f]][!is.na(All_lead_Data[[f]])], 9), sep = "")
+  All_lead_Data[[f]][!is.na(All_lead_Data[[f]])] <- paste("0", substrRight(All_lead_Data[[f]][!is.na(All_lead_Data[[f]])], 9), sep = "")
   All_lead_Data[[f]][All_lead_Data[[f]] == 0] <- NA
 }
 
@@ -228,7 +228,7 @@ for (f in ConsentFields) {
 
 rm(ConsentFields)
 
-# Cleand Character Fields -------------------------------------------------
+# Cleaned Character Fields ------------------------------------------------
 
 CharFields <- colnames(All_lead_Data)[!(colnames(All_lead_Data) %in% c(DateFields, NumFields))]
 
@@ -284,6 +284,65 @@ All_lead_Data$VINNUMBER[is.na(All_lead_Data$VINNUMBER) | All_lead_Data$VINNUMBER
                                                                                                  All_lead_Data$MANUFACTURER, 
                                                                                                  All_lead_Data$MODEL, 
                                                                                                  All_lead_Data$FIRSTREGISTRATIONYEAR)
+
+
+# Fix Affinity ------------------------------------------------------------
+All_lead_Data$AFFINITY <- word(All_lead_Data$AFFINITY, 1)
+All_lead_Data$AFFINITY[All_lead_Data$AFFINITY == "Super"] <- "Super Group"
+All_lead_Data$AFFINITY[All_lead_Data$AFFINITY == "Auto"] <- "Auto Pedigree"
+
+# Remove Unusable data ----------------------------------------------------
+# Get Taken up policies
+All_lead_Data$PRODUCTTYPECATEGORYNAME[is.na(All_lead_Data$PRODUCTTYPECATEGORYNAME)] <- "Retrenchment"
+TakenDat <- All_lead_Data$TRANSACTIONNUMBER[All_lead_Data$TAKEN == 1 & All_lead_Data$PRODUCTTYPECATEGORYNAME != "Retrenchment"]
+TakenDat <- TakenDat[!duplicated(TakenDat)]
+
+# Remove duplicates
+All_lead_Data <- All_lead_Data[!(All_lead_Data$TAKEN == 1 & All_lead_Data$PRODUCTTYPECATEGORYNAME != "Retrenchment"), ]
+All_lead_Data <- All_lead_Data[!duplicated(All_lead_Data$TRANSACTIONNUMBER), ]
+All_lead_Data <- All_lead_Data[!duplicated(All_lead_Data$CLIENTIDNUMBER), ]
+
+# Remove taken up policies from data
+All_lead_Data <- All_lead_Data[!(All_lead_Data$TRANSACTIONNUMBER %in% TakenDat), ]
+
+# Remove cash sales
+All_lead_Data$CASHTRANSACTION <- gsub(" ", "", gsub("[^[:alnum:] ]", "", toupper(All_lead_Data$CASHTRANSACTION)))
+All_lead_Data$CASHTRANSACTION[All_lead_Data$AFFINITY == "Barloworld" & All_lead_Data$DOCFINANCECOMPANYNAME == "Cash"] <- "YES"
+All_lead_Data$CASHTRANSACTION[is.na(All_lead_Data$CASHTRANSACTION)] <- "NO"
+All_lead_Data <- All_lead_Data[All_lead_Data$CASHTRANSACTION != "YES", ]
+
+# Dedupe against ID number from DB
+# Get DB ID numbers
+query  <- paste("SELECT `ID Number` FROM AccessLife_Sales_File_Lead_Data", sep = "")
+IDNums <- dbGetQuery(mydb, query)
+colnames(IDNums) <- "IDNUM"
+IDNums <- data.frame(IDNUM = IDNums[!duplicated(IDNums$IDNUM), ])
+
+All_lead_Data <- All_lead_Data[!(All_lead_Data$CLIENTIDNUMBER %in% IDNums$IDNUM), ]
+
+# Remove old people
+All_lead_Data <- All_lead_Data[All_lead_Data$CLIENTAGE <= 55, ]
+
+# Remove commercial - non self employed
+All_lead_Data$CLIENTEMPLOYMENTTYPE[is.na(All_lead_Data$CLIENTEMPLOYMENTTYPE)] <- "Unkown"
+All_lead_Data <- All_lead_Data[!(All_lead_Data$CLIENTCATEGORY == "Commercial" & All_lead_Data$CLIENTEMPLOYMENTTYPE != "Self-Employed"), ]
+
+rm(IDNums)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
