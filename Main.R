@@ -22,7 +22,9 @@ source(paste(Path, "/R_Code/Initialize.R", sep = ""))
 Load_Offline_Data <- "YES"
 
 # Important to step through the insides of this script when updating the model.
-source(paste(Path, "/R_Code/Modelling_Section.R", sep = ""))  # Need to take out parts that is done in the data import step - such as appending Culture and Race info where it already exists (if in new db, old db - update)
+source(paste(Path, "/R_Code/Modelling_Section.R", sep = ""))  # Need to take out parts that is done in the data import step - 
+                                                              #     such as appending Culture and Race info where it already 
+                                                              #     exists (if in new db, old db - update)
 
 #####################################################################################################
 # Allocation #
@@ -53,7 +55,7 @@ repeat {
       
       source(paste(Path, "/R_Code/Allocation_Manual_Recycled.R", sep = ""))
       
-    } else if ((curtime - floor(curtime))  > 0.4 | (curtime - floor(curtime)) < 0.6) { # Recalc the probabilities in the DB each half an hour
+    } else if ((curtime - floor(curtime))  > 0.4 | (curtime - floor(curtime)) < 0.6) { # Recalc probs in DB each half hour
       
       source(paste(Path, "/R_Code/Recalc_DB_Probs.R", sep = ""))
       
