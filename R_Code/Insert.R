@@ -12,7 +12,7 @@ LeadsGoingIn$INCEPTIONDATE <- DateConv(LeadsGoingIn$INCEPTIONDATE)
 
 LeadsGoingIn <- LeadsGoingIn %>% arrange(desc(Pred))
 
-# Remove singel quotes
+# Remove single quotes
 del <- plyr::colwise(function(x) str_replace_all(x, "'", ""))
 LeadsGoingIn <- del(LeadsGoingIn)
 
@@ -48,8 +48,30 @@ for (i in 1:nrow(LeadsGoingIn)) {
                        "VALUES(", vals, ")",
                        sep = "")
   
-  dbSendQuery(mydb, insertQuery)
-  
-  print(i)
+  if (i == 1) {
+    AllQueries <- insertQuery
+  } else {
+    AllQueries <- paste(AllQueries, insertQuery, sep = ";")
+  }
   
 }
+
+dbSendQuery(mydb, AllQueries)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

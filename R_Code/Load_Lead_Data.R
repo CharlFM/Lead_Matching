@@ -124,6 +124,8 @@ SIG_DAT$TRANSACTIONNUMBER <- paste("SIG", as.character(as.Date(fileXLSDate)), se
 SIG_DAT$SOURCE         <-  "SIGNIO"
 SIG_DAT$CLIENTCATEGORY <-  "PRIVATE"
 
+SIG_DAT$BRANCHNAME <-  SIG_DAT$AFFINITY
+
 SIG_DAT$CREDITLIFE <- gsub(" ","", gsub("[^[:alnum:] ]", "", gsub("X.","", toupper(SIG_DAT$CREDITLIFE))))
 
 SIG_DAT$TAKEN                               <-  0
