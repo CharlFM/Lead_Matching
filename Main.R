@@ -38,7 +38,7 @@ repeat {
   # Disable after 10PM and before 5AM
   curtime <- as.numeric(format(Sys.time(), "%H")) + as.numeric(format(Sys.time(), "%M"))/60
   
-  if (curtime > 5 & curtime < 10) {
+  if (curtime > 5 & curtime < 22) {
     
     rm(list = ls())
     gc()
