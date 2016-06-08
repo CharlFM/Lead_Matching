@@ -67,6 +67,8 @@ repeat {
       
       print(paste("Recycle at", Sys.time()))
       
+    } else if ((curtime - floor(curtime))  > 0.4 | (curtime - floor(curtime)) < 0.6) { # Recalc probs in DB each half hour
+
     } else if ((curtime - floor(curtime))  > 0.4 | (curtime - floor(curtime)) < 0.6) { # Recalc probabilities in DB each half an hour
       
       source(paste(Path, "/R_Code/Recalc_DB_Probs.R", sep = ""))
