@@ -87,10 +87,11 @@ All_lead_Data$MARITALSTATUS[!(All_lead_Data$MARITALSTATUS %in% c("SINGLE", "ENGA
 
 # CLIENTIDTYPE "OTHER ID" "RSA ID"
 # Determine SA and NON SA ID
-All_lead_Data$CLIENTIDNUMBERCLEAN <- gsub(" ", "", gsub("[^[:alnum:] ]", "", toupper(All_lead_Data$CLIENTIDNUMBER)))
-All_lead_Data$CLIENTIDTYPE   <- "OTHER ID"
+All_lead_Data$CLIENTIDNUMBER  <- gsub(" ", "", gsub("[^[:alnum:] ]", "", toupper(All_lead_Data$CLIENTIDNUMBER)))
+All_lead_Data$CLIENTIDTYPE    <- "OTHER ID"
 
-ValidOnCount <- CountAllNums(All_lead_Data$CLIENTIDNUMBERCLEAN) == 13
+ValidOnCount <- CountAllNums(All_lead_Data$CLIENTIDNUMBER) == 13
+ValidOnCount[is.na(ValidOnCount)] <- FALSE
 
 # Parts of an SA ID:
 YY  <- as.numeric(substr(All_lead_Data$CLIENTIDNUMBER,  1,  2)) # Year  of Birth (note that 1900 and 2000 will both be 00)
@@ -121,37 +122,43 @@ Even_Sum <- sumSplitValues(as.character(
                        substr(All_lead_Data$CLIENTIDNUMBER, 10, 10), substr(All_lead_Data$CLIENTIDNUMBER, 12, 12), sep = ""))))
 
 LuhnVal <- 10 - (Odd_Sum + Even_Sum) %% 10
+LuhnVal[LuhnVal == 10] <- 0
 
-LuhnVal[ValidOnCount == FALSE] <- NA
+LuhnVal[ValidOnCount == FALSE] <- -999
+LuhnVal[is.na(LuhnVal)]        <- -999
 
 ValidOnMost <- (YY  %in% seq(0, 99)  &
-                  MM  %in% seq(1, 12)  &
-                  G   %in% seq(0, 10)  &
-                  SSS %in% seq(0, 999) &
-                  C   %in% c(0, 1)     &
-                  A   %in% seq(0, 9)   &
-                  Z    ==  LuhnVal)
+                MM  %in% seq(1, 12)  &
+                G   %in% seq(0, 10)  &
+                SSS %in% seq(0, 999) &
+                C   %in% c(0, 1)     &
+                A   %in% seq(0, 9)   &
+                Z    ==  LuhnVal)
 
-ValidOnMost[ValidOnCount == FALSE] <- NA
+ValidOnMost[ValidOnCount == FALSE] <- FALSE
+ValidOnMost[is.na(ValidOnMost)]    <- FALSE
 
 ValidOnAll <- (MM == 2 & DD <= 28 & YY %% 4 == 0 |
-                 MM == 2 & DD <= 29 & YY %% 4 != 0 |
-                 MM %in% c(4, 6, 9, 11) & DD <= 30 |
-                 MM %in% c(1, 3, 5, 7, 8, 10, 12) & DD <= 31)
+               MM == 2 & DD <= 29 & YY %% 4 != 0 |
+               MM %in% c(4, 6, 9, 11) & DD <= 30 |
+               MM %in% c(1, 3, 5, 7, 8, 10, 12) & DD <= 31)
 
-ValidOnAll[is.na(ValidOnCount)] <- NA
+ValidOnAll[ValidOnMost == FALSE] <- NA
 
 YY[is.na(ValidOnAll)] <- NA
 MM[is.na(ValidOnAll)] <- NA
 DD[is.na(ValidOnAll)] <- NA
+G[is.na(ValidOnAll)]  <- NA
 
 All_lead_Data$CLIENTIDTYPE[ValidOnAll] <- "RSA ID"
 
 # Clean Birthdate
 Cur_Year <- as.numeric(substr(format(Sys.Date(), "%Y"), 3, 4))
-B_Days   <- as.Date(paste(ifelse(YY <= Cur_Year, as.numeric(paste(20, YY, sep = "")), as.numeric(paste(19, YY, sep = ""))),
-                          MM,
-                          DD, sep = "-"))
+
+B_Days <- data.frame(YYYY = ifelse(YY <= Cur_Year, as.numeric(paste(20, YY, sep = "")), as.numeric(paste(19, YY, sep = ""))),
+                     MM   = MM,
+                     DD   = DD)
+B_Days <- DateConv(paste(B_Days$YYYY, B_Days$MM, B_Days$DD, sep = "-"))
 
 Orig_B_Days <- DateConv(All_lead_Data$CLIENTBIRTHDATE)
 
@@ -173,8 +180,6 @@ rm(YY, MM, DD, G, SSS, C, A, Z, LuhnVal,
 # Get Age at purchase date
 All_lead_Data$CLIENTBIRTHDATE[All_lead_Data$CLIENTBIRTHDATE == as.Date("1899-12-30")] <- NA
 All_lead_Data$CLIENTAGE <- as.numeric(All_lead_Data$INCEPTIONDATE - All_lead_Data$CLIENTBIRTHDATE) / 365.25 
-
-All_lead_Data <- subset(All_lead_Data, select = -c(CLIENTIDNUMBERCLEAN))
 
 # Clean Contact Numbers ---------------------------------------------------
 
