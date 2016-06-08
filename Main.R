@@ -38,7 +38,7 @@ repeat {
   # Disable after 10PM and before 5AM
   curtime <- as.numeric(format(Sys.time(), "%H")) + as.numeric(format(Sys.time(), "%M"))/60
   
-  if (curtime > 5 & curtime < 10) {
+  if (curtime > 5 & curtime < 22) {
     
     rm(list = ls())
     gc()
@@ -57,18 +57,19 @@ repeat {
         (curday == "Friday" & curtime > 5 | curtime < 6)) {
       
       source(paste(Path, "/R_Code/Allocation_Manual_Recycled.R", sep = ""))
+      print(paste("Recycle at", Sys.time()))
       
-    } else if ((curtime - floor(curtime))  > 0.4 | (curtime - floor(curtime)) < 0.6) { # Recalc probs in DB each half hour
-
-    } else if ((curtime - floor(curtime))  > 0.4 | (curtime - floor(curtime)) < 0.6) { # Recalc probabilities in DB each half an hour
+    } else if ((curtime - floor(curtime))  > 0.4 & (curtime - floor(curtime)) < 0.6) { # Recalc probabilities in DB each half an hour
       
       source(paste(Path, "/R_Code/Recalc_DB_Probs.R", sep = ""))
+      print(paste("Recalc at", Sys.time()))
       
     }
     
-    dbDisconnectAll()
-    
   }
+  
+  dbDisconnectAll()
+  rm(list = ls())
   
 }
 
