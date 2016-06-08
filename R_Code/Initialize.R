@@ -12,6 +12,7 @@ library(XLConnect)
 library(readxl)
 library(RMySQL)
 library(jsonlite)
+library(curl)
 
 library(data.table)
 library(dplyr)
@@ -135,6 +136,7 @@ DateConv <- function(Cont){
     
     yyPrt                    <- as.numeric(ContDf$Date1)
     yyPrt[nchar(yyPrt) != 4] <- ""
+    yyPrt[is.na(yyPrt)]      <- ""
     
     if (sum(yyPrt != "") > 0){
       mmPrt              <- as.numeric(ContDf$Date2)
@@ -163,6 +165,7 @@ DateConv <- function(Cont){
     
     yyPrt                    <- as.numeric(ContDf$Date3)
     yyPrt[nchar(yyPrt) != 4] <- ""
+    yyPrt[is.na(yyPrt)]      <- ""
     
     if (sum(yyPrt != "") > 0){
       ddPrt              <- as.numeric(ContDf$Date1)
