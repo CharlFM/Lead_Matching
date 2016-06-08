@@ -30,6 +30,9 @@ source(paste(Path, "/R_Code/Modelling_Section.R", sep = ""))  # Need to take out
 # Allocation #
 ##############
 
+# Manual Allocation of new leads
+source(paste(Path, "/R_Code/Allocation_Manual_New.R", sep = ""))
+
 repeat {
   
   # Disable after 10PM and before 5AM
@@ -56,6 +59,8 @@ repeat {
       source(paste(Path, "/R_Code/Allocation_Manual_Recycled.R", sep = ""))
       
     } else if ((curtime - floor(curtime))  > 0.4 | (curtime - floor(curtime)) < 0.6) { # Recalc probs in DB each half hour
+
+    } else if ((curtime - floor(curtime))  > 0.4 | (curtime - floor(curtime)) < 0.6) { # Recalc probabilities in DB each half an hour
       
       source(paste(Path, "/R_Code/Recalc_DB_Probs.R", sep = ""))
       
@@ -67,10 +72,6 @@ repeat {
   
 }
 
-
-
-# Manual Allocation of new leads
-source(paste(Path, "/R_Code/Allocation_Manual_New.R", sep = ""))
 
 
 

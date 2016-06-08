@@ -21,13 +21,18 @@ agent.query <- paste("SELECT * ",
                      "WHERE `Active` = 'YES' ",
                      sep = "")
 Agents_List <- dbGetQuery(my_new_db, agent.query)
-Agents_Count <- as.numeric(nrow(Agents_List))
+
+Agents_Count <- sum(Agents_List$Owner == "NONE" & Agents_List$Active == "YES")
+
+OwnedAffs <- data.frame(Owned = Agents_List$Owner[Agents_List$Owner != "NONE"])
+
+OwnedAffs <- paste("`Affinity` <> '", OwnedAffs$Owned, "'", sep = "")
+OwnedAffs <- paste(OwnedAffs, sep = "", collapse = " OR ") 
 
 # Total Leads allocated on previous Monday
 query <- paste("SELECT COUNT(`AutoNumber`) ",
                "FROM AccessLife_Sales_File_Lead_Data ",
-               "WHERE `First Allocation Date` = '", Date.FM ,"' ",
-               "AND Affinity <> 'Auto Pedigree'",
+               "WHERE `First Allocation Date` = '", Date.FM ,"' AND (", OwnedAffs, ")" ,
                sep = "")
 
 MonLeads <- dbGetQuery(mydb, query)
@@ -56,7 +61,7 @@ query <- paste("SELECT `ZwingMaster`, COUNT(`AutoNumber`) as `Count` ",
                sep = "")
 CurAgentCount <- dbGetQuery(mydb, query)
 
-CurAgentCount <- CurAgentCount[CurAgentCount$Count > Target, ]
+CurAgentCount <- CurAgentCount[CurAgentCount$Count > as.numeric(Target), ]
 
 Rec.Agents <- paste("`ZwingMaster` = '", CurAgentCount$ZwingMaster, "'", sep = "")
 Rec.Agents <- paste(Rec.Agents, sep = "", collapse = " OR ") 
@@ -241,8 +246,8 @@ B_Days <- DateConv(paste(B_Days$YYYY, B_Days$MM, B_Days$DD, sep = "-"))
 
 Orig_B_Days <- DateConv(ManLead_Dat$CLIENTBIRTHDATE)
 
-All_lead_Data$CLIENTBIRTHDATE <- B_Days
-All_lead_Data$CLIENTBIRTHDATE[is.na(All_lead_Data$CLIENTBIRTHDATE)] <- Orig_B_Days[is.na(All_lead_Data$CLIENTBIRTHDATE)]
+ManLead_Dat$CLIENTBIRTHDATE <- B_Days
+ManLead_Dat$CLIENTBIRTHDATE[is.na(ManLead_Dat$CLIENTBIRTHDATE)] <- Orig_B_Days[is.na(ManLead_Dat$CLIENTBIRTHDATE)]
 
 rm(YY, MM, DD, G, SSS, C, A, Z, LuhnVal, ValidOnCount, ValidOnMost, ValidOnAll, Cur_Year, Orig_B_Days, B_Days, Odd_Sum, Even_Sum)
 
@@ -774,34 +779,16 @@ for (i in 1:nrow(ManLead_Dat2)) {
                        "`gbm_Pred` = '", ManLead_Dat2$Pred[i], "' ",
                        "WHERE AutoNumber = '", ManLead_Dat2$LEADNUMBER[i], "'",
                        sep = "")
-  dbSendQuery(mydb, updateQuery)
   
-  print(i)
+  if (i == 1) {
+    AllQueries <- updateQuery
+  } else {
+    AllQueries <- paste(AllQueries, updateQuery, sep = ";")
+  }
   
 }
 
-
-# Old Code ----------------------------------------------------------------
-# OUT <- ManLead_Dat2 %>% group_by(AFFINITY, ZLAGENT) %>% summarise(n = n())
-# 
-# write.csv(ManLead_Dat2, "Results.csv")
-
-# Check increase of out-of-afinity assignment
-# 
-# SubsetData <- ManLead_Dat2[ManLead_Dat2$CLIENTIDNUMBER == 5809205018087, ]
-# 
-# SubsetData <- SubsetData[, Model$var.names]
-# 
-# SubsetData <- SubsetData[rep(seq_len(nrow(SubsetData)), each = length(unlist(Model$var.levels[17]))), ]
-# 
-# SubsetData$ZLAGENT <- as.factor(unlist(Model$var.levels[17]))
-# 
-# Preds <- predict(object = Model,
-#                  newdata = SubsetData,
-#                  n.trees = ntrees,
-#                  type = "response")
-# SubsetData$Pred <- Preds
-
+dbSendQuery(mydb, AllQueries)
 
 
 
