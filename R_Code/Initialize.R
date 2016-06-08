@@ -60,10 +60,12 @@ trim <- function (x) gsub("^\\s+|\\s+$", "", x)
 ########################################################################################################################################
 ########################################################################################################################################
 
-dbDisconnectAll <- function(){
+dbDisconnectAll <- function(dispMessage = FALSE){
   ile <- length(dbListConnections(MySQL())  )
   lapply( dbListConnections(MySQL()), function(x) dbDisconnect(x) )
-  cat(sprintf("%s connection(s) closed.\n", ile))
+  if (dispMessage) {
+    cat(sprintf("%s connection(s) closed.\n", ile))
+  }
 }
 
 dbDisconnectAll()
