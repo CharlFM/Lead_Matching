@@ -438,6 +438,14 @@ colnames(ManLead_Dat)[colnames(ManLead_Dat) == "CITY"]      <-  "CLIENTPOSTALADD
 colnames(ManLead_Dat)[colnames(ManLead_Dat) == "PROVINCE"]  <-  "CLIENTPOSTALADDRESSPROVINCE"
 colnames(ManLead_Dat)[colnames(ManLead_Dat) == "SUBURB"]    <-  "CLIENTPOSTALADDRESSSUBURB"
 
+# Update original Data Postal info also
+ManLead_DatOrig$CLIENTPOSTALADDRESS2 <- gsub("(?<=\\b)([a-z])", "\\U\\1", tolower(ManLead_Dat$CLIENTPOSTALADDRESSCITY), perl = TRUE)
+ManLead_DatOrig$CLIENTPOSTALADDRESS3 <- gsub("(?<=\\b)([a-z])", "\\U\\1", tolower(ManLead_Dat$CLIENTPOSTALADDRESSSUBURB), perl = TRUE)
+ManLead_DatOrig$CLIENTPOSTALADDRESS4 <- gsub("(?<=\\b)([a-z])", "\\U\\1", tolower(ManLead_Dat$CLIENTPOSTALADDRESSPROVINCE), perl = TRUE)
+ManLead_DatOrig$CLIENTPOSTALADDRESSPOSTALCODE <- str_pad(ManLead_Dat$CLIENTPOSTALADDRESSPOSTALCODE, width = 4, side = "left", pad = "0")
+
+ManLead_DatOrig$RACE <- gsub("(?<=\\b)([a-z])", "\\U\\1", tolower(ManLead_Dat$RACE), perl = TRUE)
+
 DB_City <- Model$var.levels[which(Model$var.names == "CLIENTPOSTALADDRESSCITY")][[1]]
 
 ManLead_Dat$CLIENTPOSTALADDRESSCITY[!(ManLead_Dat$CLIENTPOSTALADDRESSCITY %in% DB_City)] <- "OTHER"
