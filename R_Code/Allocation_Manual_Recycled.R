@@ -56,6 +56,7 @@ query <- paste("SELECT `ZwingMaster`, COUNT(`AutoNumber`) as `Count` ",
                "WHERE `Status` = 'Allocated' AND `UW Status` IS NULL AND `QA Status` IS NULL ",
                "AND Affinity <> 'Auto Pedigree' AND ZwingMaster <> 'Douglas Gwanyanya' ",
                "AND `First Allocation Date` = '", Date.FM, "'",
+               "AND `First Allocation Date` = `Lead Date`",
                "GROUP BY `ZwingMaster`, `First Allocation Date` ",
                "ORDER BY `Count`",
                sep = "")
@@ -626,6 +627,7 @@ response.names <- "STATUS"
 feature.names <- colnames(ManLead_Dat)
 feature.names <- feature.names[feature.names != response.names]
 feature.names <- feature.names[feature.names != "CLIENTIDNUMBER"]
+feature.names <- feature.names[feature.names != "FIRSTALLOCATIONDATE"]
 
 for (f in feature.names) {
   if (class(ManLead_Dat[[f]]) == "character") {
@@ -780,15 +782,17 @@ for (i in 1:nrow(ManLead_Dat2)) {
                        "WHERE AutoNumber = '", ManLead_Dat2$LEADNUMBER[i], "'",
                        sep = "")
   
-  if (i == 1) {
-    AllQueries <- updateQuery
-  } else {
-    AllQueries <- paste(AllQueries, updateQuery, sep = ";")
-  }
+  dbSendQuery(mydb, updateQuery)
+  print(paste(i, "of", nrow(ManLead_Dat2)))
+  # if (i == 1) {
+  #   AllQueries <- updateQuery
+  # } else {
+  #   AllQueries <- paste(AllQueries, updateQuery, sep = ";")
+  # }
   
 }
 
-dbSendQuery(mydb, AllQueries)
+# dbSendQuery(mydb, AllQueries)
 
 
 
