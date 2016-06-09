@@ -544,6 +544,7 @@ LeadOut <- data.frame(ZLAGENT = as.character(),
                       Pred    = as.numeric(),
                       ID      = as.integer())
 
+ManLead_Dat_Distr <- ManLead_Dat
 
 for (aff in specialAffinities$AFFINITY) { 
   
@@ -557,109 +558,62 @@ for (aff in specialAffinities$AFFINITY) {
   
   AffAgents <- Allocation_Dat[Allocation_Dat[[affOrig]] == "YES", ] 
   
-  while (affTot > affCount) {
+  if (nrow(SubsetData) > 0) {
     
-    # First allocate only's # CONTINUE HERE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! <---------------------
-    for (agnt in AffAgents$ZLAGENT[AffAgents$ONLY == "YES"]) {
-      
-      SubsetData$ZLAGENT <- agnt
-      SubsetData$ZLAGENT <- as.factor(SubsetData$ZLAGENT)
-      
-      Preds <- predict(object = Model,
-                       newdata = SubsetData,
-                       n.trees = ntrees,
-                       type = "response")
-      SubsetData$Pred <- Preds
-      
-      MaxID <- SubsetData$ID[which(SubsetData$Pred == max(SubsetData$Pred))][1]
-      PredVal <- SubsetData$Pred[SubsetData$ID == MaxID]
-      PredVal[is.na(PredVal)] <- 0
-      PredVal <- max(PredVal)
-      
-      UpdateR <- data.frame(ZLAGENT = Allocation_Dat$ZWINGMASTER[Allocation_Dat$ZLAGENT == agent],
-                            Pred    = PredVal,
-                            ID      = MaxID)
-      
-      LeadOut <- rbind(LeadOut, UpdateR)
-      
-      SubsetData <- SubsetData[SubsetData$ID != MaxID, ]
-      
-      Allocation_Dat[[aff]][Allocation_Dat$ZLAGENT == agent] <- Allocation_Dat[[aff]][Allocation_Dat$ZLAGENT == agent] - 1
-      
-      # Remove agent if maxed allocation reached
-      Agents <- Allocation_Dat$ZLAGENT[Allocation_Dat[[aff]] != 0]
-      
-      affCount <- affCount + 1 
-      
-      print(paste(aff, ":", affCount))
-      
+    # First allocate only's 
+    while (nrow(SubsetData) > 0 & sum(AffAgents$PerAgent[AffAgents$ONLY == "YES"] > 0)) {
+      for (agnt in AffAgents$ZLAGENT[AffAgents$ONLY == "YES"]) {
+        source(paste(Path, "/R_Code/SubsetSort.R", sep = ""))
+        if (affTot == affCount) {break()}
+      }
     }
     
     # Then rest
-    for (agnt in AffAgents$ZLAGENT[AffAgents$ONLY != "YES"]) {
-      
-    }
+    if (nrow(SubsetData) > 0) {
+      while (nrow(SubsetData) > 0 & sum(AffAgents$PerAgent[AffAgents$ONLY != "YES"]) > 0) {
+        for (agnt in AffAgents$ZLAGENT[AffAgents$ONLY != "YES"]) {
+          source(paste(Path, "/R_Code/SubsetSort.R", sep = ""))
+          if (affTot == affCount) {break()}
+        }
+      } 
+    } 
     
   }
-    
+  
 } 
 
+Allocation_Dat <- Allocation_Dat[Allocation_Dat$PerAgent > 0, ]
+Allocation_Dat <- Allocation_Dat[Allocation_Dat$Owner == "NONE", ]
+Allocation_Dat <- Allocation_Dat[Allocation_Dat$ONLY == "NO", ]
 
-for (aff in Affins) {
+if (nrow(ManLead_Dat_Distr) > 0) {
   
-  affTot   <- sum(Allocation_Dat[[aff]])
+  aff      <- "Balancing"
   affCount <- 0
   
-  SubsetData <- ManLead_Dat[grepl(aff, ManLead_Dat$TempAFFINITY), ]
+  SubsetData <- ManLead_Dat_Distr
   SubsetData <- SubsetData[, c(Model$var.names, "ID")]
   
-  Agents <- Allocation_Dat$ZLAGENT[Allocation_Dat[[aff]] > 0]
+  AffAgents  <- Allocation_Dat
   
-  while (affTot > affCount) {
-    # Adding until cap is reached
-    for (agent in Agents) {
-      
-      SubsetData$ZLAGENT <- agent
-      SubsetData$ZLAGENT <- as.factor(SubsetData$ZLAGENT)
-      
-      Preds <- predict(object = Model,
-                       newdata = SubsetData,
-                       n.trees = ntrees,
-                       type = "response")
-      SubsetData$Pred <- Preds
-      
-      MaxID <- SubsetData$ID[which(SubsetData$Pred == max(SubsetData$Pred))][1]
-      PredVal <- SubsetData$Pred[SubsetData$ID == MaxID]
-      PredVal[is.na(PredVal)] <- 0
-      PredVal <- max(PredVal)
-      
-      UpdateR <- data.frame(ZLAGENT = Allocation_Dat$ZWINGMASTER[Allocation_Dat$ZLAGENT == agent],
-                            Pred    = PredVal,
-                            ID      = MaxID)
-      
-      LeadOut <- rbind(LeadOut, UpdateR)
-      
-      SubsetData <- SubsetData[SubsetData$ID != MaxID, ]
-      
-      Allocation_Dat[[aff]][Allocation_Dat$ZLAGENT == agent] <- Allocation_Dat[[aff]][Allocation_Dat$ZLAGENT == agent] - 1
-      
-      # Remove agent if maxed allocation reached
-      Agents <- Allocation_Dat$ZLAGENT[Allocation_Dat[[aff]] != 0]
-      
-      affCount <- affCount + 1 
-      
-      print(paste(aff, ":", affCount))
+  while (nrow(ManLead_Dat_Distr) > 0) {
+    for (agnt in Allocation_Dat$ZLAGENT) {
+      source(paste(Path, "/R_Code/SubsetSort.R", sep = ""))
       
     }
-    
   }
-  
 }
 
+
+ManLead_Dat <- subset(ManLead_Dat, select = -ZLAGENT)
 ManLead_Dat2 <- merge(ManLead_Dat, LeadOut, 
                       by.x = "ID", by.y = "ID")
 
 ManLead_Dat2$COMCAT <- ifelse(grepl("BARLO", gsub(" ", "", toupper(ManLead_Dat2$AFFINITY))), "E", "A")
+
+d_time <- gsub(" ", "_", Sys.time())
+d_time <- gsub("-", "_", d_time)
+d_time <- gsub(":", "_", d_time)
 
 write.csv(ManLead_Dat2, paste(Path, "/Output/New/Results_", d_time, ".csv", sep = ""))
 
