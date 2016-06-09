@@ -48,23 +48,23 @@ for (i in 1:nrow(LeadsGoingIn)) {
                        "VALUES(", vals, ")",
                        sep = "")
   
-  if (i == 1) {
-    AllQueries <- insertQuery
-  } else {
-    AllQueries <- paste(AllQueries, insertQuery, sep = ";")
-  }
+  dbSendQuery(mydb, insertQuery)
+  
+  # if (i == 1) {
+  #   AllQueries <- insertQuery
+  # } else {
+  #   AllQueries <- paste(AllQueries, insertQuery, sep = ";")
+  # }
   
 }
 
-dbSendQuery(mydb, AllQueries)
-
-
-
-
-
-
-
-
+# dbSendQuery(mydb, AllQueries)
+# 
+# 
+# 1 048 576 > 170 368
+# 
+# object.size(AllQueries)
+# 
 
 
 
