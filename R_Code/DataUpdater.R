@@ -1,4 +1,5 @@
 done_today <- 0
+  
 repeat {
   
   # Disable after 10PM and before 5AM
@@ -6,6 +7,7 @@ repeat {
   
   if (curtime < 5) {
     done_today <- 0
+    cat("\014")
   }
   
   if (curtime > 5 & curtime < 22) {
@@ -22,7 +24,7 @@ repeat {
     
     # Do recycling every Wednesday between 13:00 and 14:00 (thus curtime between 13.00 and 14.00)
     # Also do recycling every Thursday and Friday between 5AM and 6AM
-    if (done_today == 0 & ((curday == "Wednesday" & curtime > 13 & curtime < 14) |
+    if (done_today == 0 & ((curday == "Wednesday" & curtime > 5 & curtime < 6) |
                            (curday == "Thursday" & curtime > 5 | curtime < 6) |
                            (curday == "Friday" & curtime > 5 | curtime < 6))) {
       
@@ -31,7 +33,13 @@ repeat {
       
       print(paste("Recycle at", Sys.time()))
       
-    } else if ((curtime - floor(curtime))  > 0 & (curtime - floor(curtime)) < 0.05) { # Recalc probs in DB each half hour
+    } else if ((curtime - floor(curtime))  > 0 & (curtime - floor(curtime)) < 0.01) { # Recalc probs in DB each half hour
+      
+      source(paste(Path, "/R_Code/Recalc_DB_Probs.R", sep = ""))
+      
+      print(paste("Recalc at", Sys.time()))
+      
+    } else if ((curtime - floor(curtime))  > 0.5 & (curtime - floor(curtime)) < 0.51) { # Recalc probs in DB each half hour
       
       source(paste(Path, "/R_Code/Recalc_DB_Probs.R", sep = ""))
       
@@ -44,3 +52,13 @@ repeat {
   rm(list = ls()[ls() != "done_today"])
   
 }
+
+
+
+
+
+
+
+
+
+
