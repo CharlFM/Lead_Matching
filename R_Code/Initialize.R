@@ -8,42 +8,27 @@ options(scipen = 999)
 # Load Libraries and Custom Functions #
 #######################################
 
-library(XLConnect)
-library(readxl)
-library(RMySQL)
-library(jsonlite)
-library(curl)
+# Installing packages on the go
+# First need to install this one before all other
+need <- "RGtk2"
+ins  <- installed.packages()[, 1]                  
+(Get <- need[which(is.na(match(need,ins)))])       
+if(length(Get) > 0) { install.packages(Get) }      
+eval(parse(text = paste("library(", need, ")")))   
 
-library(data.table)
-library(dplyr)
-library(tidyr)
-library(Matrix)
-library(stringr)
-library(gtools)
-library(reshape)
+need <- c("XLConnect", "readxl", "RMySQL", "jsonlite", "curl", 
+          "data.table", "dplyr", "tidyr", "Matrix", "stringr", "gtools", "reshape",
+          "lubridate",
+          "rpart", "rpart.plot", "party", "rattle",
+          "ggplot2", "gbm", "dismo", "randomForest", "xgboost", "Ckmeans.1d.dp", "glmnet", "caret",
+          "AUC", "pROC", "ROCR",
+          "mixtools")
 
-library(lubridate)
 
-library(rpart)
-library(rpart.plot)
-library(party)
-library(rattle)
-
-library(ggplot2)
-
-library(gbm)
-library(dismo)
-library(randomForest)
-library(xgboost)
-library(Ckmeans.1d.dp)
-library(glmnet) 
-library(caret)
-
-library(AUC)
-library(pROC) 
-library(ROCR)
-
-library(mixtools)
+ins  <- installed.packages()[, 1]                  
+(Get <- need[which(is.na(match(need,ins)))])       
+if(length(Get) > 0) { install.packages(Get) }      
+eval(parse(text = paste("library(", need, ")")))   
 
 ########################################################################################################################################
 ########################################################################################################################################
