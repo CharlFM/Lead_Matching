@@ -9,6 +9,12 @@ source(paste(Path, "/R_Code/Load_Other_Data.R", sep = ""))
 # Opens DB
 source(paste(Path, "/R_Code/OpenDB.R", sep = ""))
 
+ntrees <- max(Model$trees.fitted)
+
+DB_Names <- read_excel(paste(Path, "/Data/Lead_Col_Names/DBNAMES.xlsx", sep = ""),
+                       sheet = 1,
+                       col_names = TRUE)
+
 today <- as.character(Sys.Date())
 
 DateSeq <- seq(as.Date(today), by = "-1 day", length.out = 7)
@@ -40,7 +46,7 @@ MonLeads <- dbGetQuery(mydb, query)
 Target <- 0
 if (weekdays(as.Date(today)) == "Wednesday") {
   Target <- MonLeads/Agents_Count
-  Target <- ceiling(Target * 0.5)   # half way through week
+  Target <- ceiling(Target * 0.4)   # 2/5 through week
 } else if (weekdays(as.Date(today)) == "Thursday") {
   Target <- MonLeads/Agents_Count
   Target <- ceiling(Target * 0.6)   # 3/5 through week
@@ -64,22 +70,29 @@ CurAgentCount <- dbGetQuery(mydb, query)
 
 CurAgentCount <- CurAgentCount[CurAgentCount$Count > as.numeric(Target), ]
 
-Rec.Agents <- paste("`ZwingMaster` = '", CurAgentCount$ZwingMaster, "'", sep = "")
-Rec.Agents <- paste(Rec.Agents, sep = "", collapse = " OR ") 
+if (nrow(CurAgentCount) > 0) {
+  Rec.Agents <- paste("`ZwingMaster` = '", CurAgentCount$ZwingMaster, "'", sep = "")
+  Rec.Agents <- paste(Rec.Agents, sep = "", collapse = " OR ") 
+  # Loads manual allocation Data
+  query <- paste("SELECT * ",
+                 "FROM AccessLife_Sales_File_Lead_Data ",
+                 "WHERE `Status` = 'Allocated' ",
+                 "AND `First Allocation Date` BETWEEN '", as.Date(today) - months(6), "' AND '", as.Date(today),"' ",
+                 "AND `Lead Date` <> '", today,"' ",
+                 "AND `UW Status` IS NULL AND `QA Status` IS NULL AND (", Rec.Agents, ")",
+                 sep = "") 
+} else {
+  # Loads manual allocation Data
+  query <- paste("SELECT * ",
+                 "FROM AccessLife_Sales_File_Lead_Data ",
+                 "WHERE `Status` = 'Allocated' ",
+                 "AND `First Allocation Date` BETWEEN '", as.Date(today) - months(6), "' AND '", as.Date(today) - weeks(1),"' ",
+                 "AND `Lead Date` <> '", today,"' ",
+                 "AND `UW Status` IS NULL AND `QA Status` IS NULL ",
+                 "AND `ZwingMaster` <> 'Douglas Gwanyanya' AND `ZwingMaster` <> 'Eric Tagariva'",
+                 sep = "")
+}
 
-ntrees <- max(Model$trees.fitted)
-# Loads manual allocation Data
-DB_Names <- read_excel(paste(Path, "/Data/Lead_Col_Names/DBNAMES.xlsx", sep = ""),
-                       sheet = 1,
-                       col_names = TRUE)
-
-query <- paste("SELECT * ",
-              "FROM AccessLife_Sales_File_Lead_Data ",
-              "WHERE `Status` = 'Allocated' ",
-              "AND `First Allocation Date` BETWEEN '", as.Date(today) - months(6), "' AND '", as.Date(today),"' ",
-              "AND `Lead Date` <> '", today,"' ",
-              "AND `UW Status` IS NULL AND `QA Status` IS NULL AND (", Rec.Agents, ")",
-              sep = "")
 
 ManLead_Dat <- dbGetQuery(mydb, query)
 
@@ -624,10 +637,7 @@ ManLead_Dat$AFFINITY <- gsub(" ", "", gsub("[^[:alpha:] ]", "", toupper(ManLead_
 
 response.names <- "STATUS"
 
-feature.names <- colnames(ManLead_Dat)
-feature.names <- feature.names[feature.names != response.names]
-feature.names <- feature.names[feature.names != "CLIENTIDNUMBER"]
-feature.names <- feature.names[feature.names != "FIRSTALLOCATIONDATE"]
+feature.names <- colnames(ManLead_Dat)[!(colnames(ManLead_Dat) %in% c(response.names, "CLIENTIDNUMBER", "FIRSTALLOCATIONDATE"))]
 
 for (f in feature.names) {
   if (class(ManLead_Dat[[f]]) == "character") {
@@ -783,6 +793,7 @@ for (i in 1:nrow(ManLead_Dat2)) {
                        sep = "")
   
   dbSendQuery(mydb, updateQuery)
+
   print(paste(i, "of", nrow(ManLead_Dat2)))
   # if (i == 1) {
   #   AllQueries <- updateQuery
@@ -793,6 +804,9 @@ for (i in 1:nrow(ManLead_Dat2)) {
 }
 
 # dbSendQuery(mydb, AllQueries)
+
+
+
 
 
 
