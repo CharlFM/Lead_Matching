@@ -20,7 +20,7 @@ LeadsGoingIn <- del(LeadsGoingIn)
 for (i in 1:nrow(LeadsGoingIn)) {
   
   vals = paste(LeadsGoingIn$CLIENTTITLE[i], LeadsGoingIn$CLIENTFIRSTNAME[i], LeadsGoingIn$CLIENTLASTNAME[i], 
-               LeadsGoingIn$CLIENTIDNUMBER[i], LeadsGoingIn$CLIENTBIRTHDATE[i], LeadsGoingIn$MARITALSTATUS[i],
+               LeadsGoingIn$CLIENTIDNUMBER[i], LeadsGoingIn$CLIENTBIRTHDATE[i], LeadsGoingIn$MARITALSTATUS[i], LeadsGoingIn$RACE[i],
                LeadsGoingIn$CLIENTPOSTALADDRESS1[i], LeadsGoingIn$CLIENTPOSTALADDRESS2[i], LeadsGoingIn$CLIENTPOSTALADDRESS3[i],
                LeadsGoingIn$CLIENTPOSTALADDRESS4[i], LeadsGoingIn$CLIENTPOSTALADDRESSPOSTALCODE[i],
                LeadsGoingIn$CLIENTOCCUPATIONNAME[i], LeadsGoingIn$CLIENTWORKTELEPHONENUMBER[i], 
@@ -32,19 +32,20 @@ for (i in 1:nrow(LeadsGoingIn)) {
                "AccessLife", LeadsGoingIn$ZLAGENT[i], "Red1.png", "Allocated", LeadsGoingIn$COMCAT[i], 
                LeadsGoingIn$BRANCHNAME[i], LeadsGoingIn$AFFINITY[i], LeadsGoingIn$DOCFINANCECOMPANYNAME[i], today, 
                LeadsGoingIn$TRANSACTIONNUMBER[i], today, LeadsGoingIn$Pred[i], LeadsGoingIn$PRODUCTTYPECATEGORYNAME[i], 
+               LeadsGoingIn$CLIENTEMAILADDRESS[i], 
                sep = "', '")
   
   vals = paste("'", vals, "'", sep = "") 
   
   insertQuery <- paste("INSERT INTO AccessLife_Sales_File_Lead_Data ",
                        "(`Title`,`First name`, `surname`, `id number`, `Date of Birth`, `Marital status`, ",
-                       "`Postal Address 1`, `Postal Address 2`, `Postal Address 3`, `Postal Address 4`, `Postal Address Code`, ",
+                       "`Race`, `Postal Address 1`, `Postal Address 2`, `Postal Address 3`, `Postal Address 4`, `Postal Address Code`, ",
                        "`Occupation`, `Work Tel`, `Home Tel`, `Cellphone`, `Broker - Finance Consultant`, ", 
                        "`Purchase price`, `Term`, `Dep or Trade in`, `Purchase Date`, `Residual`, `Principal Debt`, ", 
                        "`Vehicle Make`, `year Model`, `Vehicle use`, `Odometer kms`, `Short Term Insurer`, ", 
                        "`Registration No`, `Campaign`, `ZwingMaster`, `Staticon`, `Status`, `COMCat`, `Selling Dealer`, ",
                        "`Affinity`, `Financing Bank`, `Lead Date`, `Platform Number` , `First Allocation Date`, `gbm_Pred`,", 
-                       "`retrenchment_allowed`) ",
+                       "`retrenchment_allowed`, `E-Mail Address`) ",
                        "VALUES(", vals, ")",
                        sep = "")
   
