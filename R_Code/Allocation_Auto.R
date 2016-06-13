@@ -11,7 +11,7 @@ LeadOut <- data.frame(ZLAGENT = as.character(),
 
 # Allocate/Rank Owned Affinities ------------------------------------------
 if (length(OwnedAffs) > 0) {
-  
+
   for (aff in OwnedAffs) {
     
     agent   <- Allocation_Dat$ZLAGENT[gsub(" ", "", gsub("[^[:alpha:] ]", "", toupper(Allocation_Dat$Owner))) == aff]
@@ -38,13 +38,14 @@ if (length(OwnedAffs) > 0) {
       LeadOut <- rbind(LeadOut, UpdateR)
       
       ManLead_Dat     <- ManLead_Dat[!(ManLead_Dat$ID %in% SubsetData$ID), ]
-      ManLead_DatOrig <- ManLead_DatOrig[!(ManLead_DatOrig$ID %in% SubsetData$ID), ]
       
     }
     
   }
   
   source(paste(Path, "/R_Code/Insert.R", sep = ""))
+  
+  ManLead_DatOrig <- ManLead_DatOrig[!(ManLead_DatOrig$ID %in% SubsetData$ID), ]
   
 }
 
