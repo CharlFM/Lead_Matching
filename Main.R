@@ -22,7 +22,7 @@ source(paste(Path, "/R_Code/Initialize.R", sep = ""))
 Load_Offline_Data <- "YES"
 
 # Important to step through the insides of this script when updating the model.
-source(paste(Path, "/R_Code/Modelling_Section.R", sep = ""))  # Need to take out parts that is done in the data import step - 
+source(paste(Path, "/R_Code/Modelling_Section.R", sep = ""))  #     Need to take out parts that is done in the data import step - 
                                                               #     such as appending Culture and Race info where it already 
                                                               #     exists (if in new db, old db - update)
 
@@ -33,7 +33,7 @@ source(paste(Path, "/R_Code/Modelling_Section.R", sep = ""))  # Need to take out
 # Manual Allocation of new leads
 source(paste(Path, "/R_Code/Allocation_Manual_New.R", sep = ""))
 
-# Run from here
+# Run from here (This should be run continuously)
 source(paste(Path, "/R_Code/DataUpdater.R", sep = ""))
 
 

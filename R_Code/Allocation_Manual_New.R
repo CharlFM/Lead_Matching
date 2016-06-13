@@ -271,7 +271,7 @@ rm(DB_Bn)
 
 
 # Fix time to call
-ManLead_Dat$TIMETOCALL     <- as.numeric(as.Date(Sys.Date()) - ManLead_Dat$INCEPTIONDATE)
+ManLead_Dat$TIMETOCALL     <- as.numeric(as.Date(today) - ManLead_Dat$INCEPTIONDATE)
 
 ManLead_Dat <- subset(ManLead_Dat, select = -c(INCEPTIONDATE, FIRSTALLOCATIONDATE))
 
@@ -438,6 +438,14 @@ colnames(ManLead_Dat)[colnames(ManLead_Dat) == "CITY"]      <-  "CLIENTPOSTALADD
 colnames(ManLead_Dat)[colnames(ManLead_Dat) == "PROVINCE"]  <-  "CLIENTPOSTALADDRESSPROVINCE"
 colnames(ManLead_Dat)[colnames(ManLead_Dat) == "SUBURB"]    <-  "CLIENTPOSTALADDRESSSUBURB"
 
+# Update original Data Postal info also
+ManLead_DatOrig$CLIENTPOSTALADDRESS2 <- gsub("(?<=\\b)([a-z])", "\\U\\1", tolower(ManLead_Dat$CLIENTPOSTALADDRESSCITY), perl = TRUE)
+ManLead_DatOrig$CLIENTPOSTALADDRESS3 <- gsub("(?<=\\b)([a-z])", "\\U\\1", tolower(ManLead_Dat$CLIENTPOSTALADDRESSSUBURB), perl = TRUE)
+ManLead_DatOrig$CLIENTPOSTALADDRESS4 <- gsub("(?<=\\b)([a-z])", "\\U\\1", tolower(ManLead_Dat$CLIENTPOSTALADDRESSPROVINCE), perl = TRUE)
+ManLead_DatOrig$CLIENTPOSTALADDRESSPOSTALCODE <- str_pad(ManLead_Dat$CLIENTPOSTALADDRESSPOSTALCODE, width = 4, side = "left", pad = "0")
+
+ManLead_DatOrig$RACE <- gsub("(?<=\\b)([a-z])", "\\U\\1", tolower(ManLead_Dat$RACE), perl = TRUE)
+
 DB_City <- Model$var.levels[which(Model$var.names == "CLIENTPOSTALADDRESSCITY")][[1]]
 
 ManLead_Dat$CLIENTPOSTALADDRESSCITY[!(ManLead_Dat$CLIENTPOSTALADDRESSCITY %in% DB_City)] <- "OTHER"
@@ -477,7 +485,7 @@ ManLead_Dat$AFFINITY <- as.character(ManLead_Dat$AFFINITY)
 
 #########################################################################
 
-ManLead_Dat$LEADPICKUPDATE <- as.Date(Sys.Date())
+ManLead_Dat$LEADPICKUPDATE <- as.Date(today)
 
 #########################################################################
 
@@ -492,7 +500,7 @@ ManLead_Dat$DAYTIME[ManLead_Dat$LEADPICKUPTIME %in% 19:24] <- "Night"
 
 #########################################################################
 
-ManLead_Dat$WEEKDAY  <- weekdays(Sys.Date())
+ManLead_Dat$WEEKDAY  <- weekdays(as.Date(today))
 
 #########################################################################
 
@@ -509,7 +517,7 @@ ManLead_Dat$WEEKTIME[ManLead_Dat$WEEKDAY == "Saturday" | ManLead_Dat$WEEKDAY == 
 #########################################################################
 
 EnricoURL   <- paste("http://kayaposoft.com/enrico/json/v1.0/index.php?action=getPublicHolidaysForDateRange&fromDate=01-01-2013&toDate=31-12-",
-                     format(Sys.Date(),"%Y"), 
+                     format(as.Date(today),"%Y"), 
                      "&country=zaf&region=all",
                      sep = "")
 Enrico_data <- fromJSON(EnricoURL)
