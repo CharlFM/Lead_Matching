@@ -326,7 +326,7 @@ IDNums <- data.frame(IDNUM = IDNums[!duplicated(IDNums$IDNUM), ])
 All_lead_Data <- All_lead_Data[!(All_lead_Data$CLIENTIDNUMBER %in% IDNums$IDNUM), ]
 
 # Remove old people
-All_lead_Data <- All_lead_Data[All_lead_Data$CLIENTAGE <= 55, ]
+All_lead_Data <- All_lead_Data[All_lead_Data$CLIENTAGE < 60, ]
 
 # Remove commercial - non self employed
 All_lead_Data$CLIENTEMPLOYMENTTYPE[is.na(All_lead_Data$CLIENTEMPLOYMENTTYPE)] <- "Unkown"
