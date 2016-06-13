@@ -9,8 +9,8 @@ DB_DAT <- subset(DB_DAT, select = -c(CLIENTIDNUMBER,
 # Remove columns with duplicated values (pointless to add these in the model)
 DB_DAT <- DB_DAT[sapply(DB_DAT, function(x) length(unique(x)) > 1)]
 
-train <- DB_DAT[DB_DAT$random <= 0.95, ] # 1 if satisfied with model
-test  <- DB_DAT[DB_DAT$random >  0.95, ] # 1 if satisfied with model
+train <- DB_DAT[DB_DAT$random <= 0.7, ] # 1 if satisfied with model
+test  <- DB_DAT[DB_DAT$random >  0.7, ] # 1 if satisfied with model
 
 train <- subset(train, select = -random)
 test  <- subset(test,  select = -random)
