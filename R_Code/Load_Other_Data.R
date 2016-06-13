@@ -1,3 +1,20 @@
+# Which Agents are currently active
+
+  #Get active agents from DB
+  # Opens DB connection
+  source(paste(Path, "/R_Code/OpenDB.R", sep = ""))
+  
+  Active_Agents_Data <- dbReadTable(my_new_db, "agents")
+  
+  dbDisconnectAll()
+  
+  #Convert to data frame and make into column of names
+  Active_Agents_Data <- as.data.frame(Active_Agents_Data)
+  Active_Agents_Data <- Active_Agents_Data[Active_Agents_Data$Active == "YES",]
+  Active_Agents_Data <- paste(toupper(Active_Agents_Data$AgentName), toupper(Active_Agents_Data$AgentSurname), sep = "")
+  Active_Agents_Data <- gsub(" ","", gsub("[^[:alnum:] ]", "", Active_Agents_Data))
+
+
 # Loads City Data - to get province info
 
 City_Post_Data <- fread(paste(Path, "/Data/City_Data/With_PostalCode.csv", sep = ""),
