@@ -22,7 +22,7 @@ DB_DAT$ZLAGENT <- gsub(" ", "", gsub("[^[:alpha:] ]", "", toupper(DB_DAT$ZLAGENT
 DB_DAT <- DB_DAT[!(DB_DAT$ZLAGENT == "" | is.na(DB_DAT$ZLAGENT)), ]
 
 # Select only active agents
-DB_DAT <- DB_DAT[DB_DAT$ZLAGENT %in% Active_Agents_Data$ACTIVEAGENTS, ]
+DB_DAT <- DB_DAT[DB_DAT$ZLAGENT %in% Active_Agents_Data, ]
 
 # Affinity
 DB_DAT$AFFINITY <- gsub(" ", "", gsub("[^[:alpha:] ]", "", toupper(DB_DAT$AFFINITY)))

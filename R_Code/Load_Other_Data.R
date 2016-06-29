@@ -3,11 +3,11 @@
   #Get active agents from DB
   # Opens DB connection
   source(paste(Path, "/R_Code/OpenDB.R", sep = ""))
-  
+
   Active_Agents_Data <- dbReadTable(my_new_db, "agents")
-  
-  dbDisconnectAll()
-  
+
+  #dbDisconnectAll()
+
   #Convert to data frame and make into column of names
   Active_Agents_Data <- as.data.frame(Active_Agents_Data)
   Active_Agents_Data <- Active_Agents_Data[Active_Agents_Data$Active == "YES",]

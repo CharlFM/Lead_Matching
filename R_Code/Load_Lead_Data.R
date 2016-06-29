@@ -111,11 +111,14 @@ posadr <- trim(SIG_DAT$CLIENTPOSTALADDRESS)
 pos_Pos_Code <- substr(posadr, nchar(posadr) - 3, nchar(posadr))
 posadr <- trim(substr(posadr, 1, nchar(posadr) - 4))
 
-SIG_DAT$CLIENTPOSTALADDRESS1 <- posadr
+SIG_DAT$CLIENTPOSTALADDRESS1 <- trim(posadr)
 SIG_DAT$CLIENTPOSTALADDRESSPOSTALCODE <- as.numeric(pos_Pos_Code)
 
-SIG_DAT$CLIENTRESIDENTIALADDRESS1 <- resadr
+SIG_DAT$CLIENTRESIDENTIALADDRESS1 <- trim(resadr)
 SIG_DAT$CLIENTRESIDENTIALADDRESSPOSTALCODE <- as.numeric(res_Pos_Code)
+
+SIG_DAT$CLIENTPOSTALADDRESS1[SIG_DAT$CLIENTPOSTALADDRESS1 == ""] <- SIG_DAT$CLIENTRESIDENTIALADDRESS1[SIG_DAT$CLIENTPOSTALADDRESS1 == ""]
+SIG_DAT$CLIENTPOSTALADDRESSPOSTALCODE[is.na(SIG_DAT$CLIENTPOSTALADDRESSPOSTALCODE)] <- SIG_DAT$CLIENTRESIDENTIALADDRESSPOSTALCODE[is.na(SIG_DAT$CLIENTPOSTALADDRESSPOSTALCODE)]
 
 SIG_DAT <- subset(SIG_DAT, select = -c(CLIENTRESIDENTIALADDRESS, CLIENTPOSTALADDRESS))
 
@@ -202,7 +205,10 @@ SIR_Names <- readWorksheet(loadWorkbook(paste(Path, "/Data/Lead_Col_Names/SIRITI
                            sheet = 1)
 
 All_lead_Data <- All_lead_Data[, colnames(All_lead_Data) %in% SIR_Names$Original]
-colnames(All_lead_Data) <- SIR_Names$New[colnames(All_lead_Data) %in% SIR_Names$Original]
+
+##### Use the commented code if colnames is smaller than SIR_Names
+# colnames(All_lead_Data) <- SIR_Names$New[colnames(All_lead_Data) %in% SIR_Names$Original]
+colnames(All_lead_Data) <- SIR_Names$New[SIR_Names$Original %in% colnames(All_lead_Data)]
 
 All_lead_Data$SOURCE <- "SIRITI"
 

@@ -9,16 +9,16 @@ TestPred <- predict(object = Model,
                     n.trees = ntrees,
                     type = "response")
 
-AUC::auc(AUC::roc(TestPred, as.factor(test$STATUS))) # 0.768791 
+AUC::auc(AUC::roc(TestPred, as.factor(test$STATUS))) # 0.7839955 
 
 TrainPred <- predict(object = Model,
                      newdata = train,
                      n.trees = ntrees,
                      type = "response")
 
-AUC::auc(AUC::roc(TrainPred, as.factor(train$STATUS))) # 0.7680261
+AUC::auc(AUC::roc(TrainPred, as.factor(train$STATUS))) # 0.8052404
 
-#   -----------------------------------------------------------------------
+#   -------------------------------------------------------------------------
 
 # To uncomment use ctrl shift c
 # # XGBoost Predictions -----------------------------------------------------
