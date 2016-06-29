@@ -27,6 +27,8 @@ repeat {
                            (curday == "Thursday" & curtime > 5 & curtime < 6) |
                            (curday == "Friday" & curtime > 5 & curtime < 6))) {
       
+    # if (done_today == 0 & ((curday == "Friday" & curtime > 5 & curtime < 6))) {
+    
       source(paste(Path, "/R_Code/Allocation_Manual_Recycled.R", sep = ""))
 
       done_today <- 1
@@ -35,13 +37,15 @@ repeat {
       
     } else if ((curtime - floor(curtime))  > 0.01 & (curtime - floor(curtime)) < 0.035) { # Recalc probs in DB each half hour
       
-      source(paste(Path, "/R_Code/Recalc_DB_Probs.R", sep = ""))
+      # Added an error handler so that the code doesn't break when R cannot connect to the database.
+      try(source(paste(Path, "/R_Code/Recalc_DB_Probs.R", sep = "")))
       
       print(paste("Recalc at", Sys.time()))
       
     } else if ((curtime - floor(curtime))  > 0.51 & (curtime - floor(curtime)) < 0.535) { # Recalc probs in DB each half hour
       
-      source(paste(Path, "/R_Code/Recalc_DB_Probs.R", sep = ""))
+      # Added an error handler so that the code doesn't break when R cannot connect to the database.
+      try(source(paste(Path, "/R_Code/Recalc_DB_Probs.R", sep = "")))
       print(paste("Recalc at", Sys.time()))
       
     } 
