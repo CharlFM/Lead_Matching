@@ -434,18 +434,28 @@ rm(Provinces, City_Data, AdrDf, n, l, tempDf, i, PostCol, PcodeFin, City_Post_Da
 
 ManLead_Dat <- subset(ManLead_Dat, select = -CLIENTFULLPOSTAL)
 
-colnames(ManLead_Dat)[colnames(ManLead_Dat) == "CITY"]      <-  "CLIENTPOSTALADDRESSCITY"
-colnames(ManLead_Dat)[colnames(ManLead_Dat) == "PROVINCE"]  <-  "CLIENTPOSTALADDRESSPROVINCE"
-colnames(ManLead_Dat)[colnames(ManLead_Dat) == "SUBURB"]    <-  "CLIENTPOSTALADDRESSSUBURB"
+colnames(ManLead_Dat)[colnames(ManLead_Dat) == "CITY"]      <-  "CLIENTPOSTALADDRESS2"
+colnames(ManLead_Dat)[colnames(ManLead_Dat) == "PROVINCE"]  <-  "CLIENTPOSTALADDRESS3"
+colnames(ManLead_Dat)[colnames(ManLead_Dat) == "SUBURB"]    <-  "CLIENTPOSTALADDRESS4"
+
+IDnPostal <- subset(ManLead_Dat, select = c(ID, CLIENTPOSTALADDRESS2, CLIENTPOSTALADDRESS3, CLIENTPOSTALADDRESS4, CLIENTPOSTALADDRESSPOSTALCODE))
 
 # Update original Data Postal info also
-ManLead_DatOrig$CLIENTPOSTALADDRESS2 <- gsub("(?<=\\b)([a-z])", "\\U\\1", tolower(ManLead_Dat$CLIENTPOSTALADDRESSCITY), perl = TRUE)
-ManLead_DatOrig$CLIENTPOSTALADDRESS3 <- gsub("(?<=\\b)([a-z])", "\\U\\1", tolower(ManLead_Dat$CLIENTPOSTALADDRESSSUBURB), perl = TRUE)
-ManLead_DatOrig$CLIENTPOSTALADDRESS4 <- gsub("(?<=\\b)([a-z])", "\\U\\1", tolower(ManLead_Dat$CLIENTPOSTALADDRESSPROVINCE), perl = TRUE)
-ManLead_DatOrig$CLIENTPOSTALADDRESSPOSTALCODE <- str_pad(ManLead_Dat$CLIENTPOSTALADDRESSPOSTALCODE, width = 4, side = "left", pad = "0")
+ManLead_DatOrig <- subset(ManLead_DatOrig, select = -c(CLIENTPOSTALADDRESS2, CLIENTPOSTALADDRESS3, CLIENTPOSTALADDRESS4, CLIENTPOSTALADDRESSPOSTALCODE))
+ManLead_DatOrig <- merge(ManLead_DatOrig, IDnPostal, by = "ID")
+ManLead_DatOrig$CLIENTPOSTALADDRESS2 <- gsub("(?<=\\b)([a-z])", "\\U\\1", tolower(ManLead_DatOrig$CLIENTPOSTALADDRESS2), perl = TRUE)
+ManLead_DatOrig$CLIENTPOSTALADDRESS3 <- gsub("(?<=\\b)([a-z])", "\\U\\1", tolower(ManLead_DatOrig$CLIENTPOSTALADDRESS3), perl = TRUE)
+ManLead_DatOrig$CLIENTPOSTALADDRESS4 <- gsub("(?<=\\b)([a-z])", "\\U\\1", tolower(ManLead_DatOrig$CLIENTPOSTALADDRESS4), perl = TRUE)
+ManLead_DatOrig$CLIENTPOSTALADDRESSPOSTALCODE <- str_pad(ManLead_DatOrig$CLIENTPOSTALADDRESSPOSTALCODE, width = 4, side = "left", pad = "0")
 
 ManLead_DatOrig$RACE <- gsub("(?<=\\b)([a-z])", "\\U\\1", tolower(ManLead_Dat$RACE), perl = TRUE)
 
+# Set Names back
+colnames(ManLead_Dat)[colnames(ManLead_Dat) == "CLIENTPOSTALADDRESS2"]  <-  "CLIENTPOSTALADDRESSCITY"
+colnames(ManLead_Dat)[colnames(ManLead_Dat) == "CLIENTPOSTALADDRESS3"]  <-  "CLIENTPOSTALADDRESSPROVINCE"
+colnames(ManLead_Dat)[colnames(ManLead_Dat) == "CLIENTPOSTALADDRESS4"]  <-  "CLIENTPOSTALADDRESSSUBURB"
+
+# Continue cleaning
 DB_City <- Model$var.levels[which(Model$var.names == "CLIENTPOSTALADDRESSCITY")][[1]]
 
 ManLead_Dat$CLIENTPOSTALADDRESSCITY[!(ManLead_Dat$CLIENTPOSTALADDRESSCITY %in% DB_City)] <- "OTHER"
@@ -625,8 +635,8 @@ d_time <- gsub(":", "_", d_time)
 
 write.csv(ManLead_Dat2, paste(Path, "/Output/New/Results_", d_time, ".csv", sep = ""))
 
-# Insert to DB ---------------------------------------------------------------
-source(paste(Path, "/R_Code/Insert.R", sep = ""))
+# # Insert to DB ---------------------------------------------------------------
+# source(paste(Path, "/R_Code/Insert.R", sep = ""))
 
 
 

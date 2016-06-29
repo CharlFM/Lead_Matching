@@ -19,7 +19,7 @@ source(paste(Path, "/R_Code/Initialize.R", sep = ""))
 #############
 
 # Enter "YES" or "NO", this will determine if offline data should be used (faster but outdated data)
-Load_Offline_Data <- "YES"
+Load_Offline_Data <- "NO"
 
 # Important to step through the insides of this script when updating the model.
 source(paste(Path, "/R_Code/Modelling_Section.R", sep = ""))  #     Need to take out parts that is done in the data import step - 
@@ -32,6 +32,9 @@ source(paste(Path, "/R_Code/Modelling_Section.R", sep = ""))  #     Need to take
 
 # Manual Allocation of new leads
 source(paste(Path, "/R_Code/Allocation_Manual_New.R", sep = ""))
+
+# Insert to DB ---------------------------------------------------------------
+source(paste(Path, "/R_Code/Insert.R", sep = ""))
 
 # Run from here (This should be run continuously)
 source(paste(Path, "/R_Code/DataUpdater.R", sep = ""))
