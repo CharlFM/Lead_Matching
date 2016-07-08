@@ -27,8 +27,8 @@ repeat {
                            (curday == "Thursday" & curtime > 5 & curtime < 6) |
                            (curday == "Friday" & curtime > 5 & curtime < 6))) {
       
-    # if (done_today == 0 & ((curday == "Friday" & curtime > 5 & curtime < 6))) {
-    
+    # if (done_today == 0 & (curday == "Friday" & curtime > 5 & curtime < 6)) {
+     
       source(paste(Path, "/R_Code/Allocation_Manual_Recycled.R", sep = ""))
 
       done_today <- 1
