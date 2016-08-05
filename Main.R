@@ -33,6 +33,9 @@ source(paste(Path, "/R_Code/Modelling_Section.R", sep = ""))  #     Need to take
 # Manual Allocation of new leads
 source(paste(Path, "/R_Code/Allocation_Manual_New.R", sep = ""))
 
+# Check Affinity names
+source(paste(Path, "/R_Code/Affinity_Names.R", sep=""))
+
 # Insert to DB ---------------------------------------------------------------
 source(paste(Path, "/R_Code/Insert.R", sep = ""))
 
