@@ -77,7 +77,7 @@ if (nrow(CurAgentCount) > 0) {
   query <- paste("SELECT * ",
                  "FROM AccessLife_Sales_File_Lead_Data ",
                  "WHERE `Status` = 'Allocated' ",
-                 "AND `First Allocation Date` BETWEEN '", as.Date(today) - months(2), "' AND '", as.Date(today),"' ",
+                 "AND `First Allocation Date` BETWEEN '", as.Date(today) - months(4), "' AND '", as.Date(today),"' ",
                  "AND `Lead Date` <> '", today,"' ",
                  "AND `UW Status` IS NULL AND `QA Status` IS NULL AND (", Rec.Agents, ")",
                  sep = "") 
@@ -86,7 +86,7 @@ if (nrow(CurAgentCount) > 0) {
   query <- paste("SELECT * ",
                  "FROM AccessLife_Sales_File_Lead_Data ",
                  "WHERE `Status` = 'Allocated' ",
-                 "AND `First Allocation Date` BETWEEN '", as.Date(today) - months(2), "' AND '", as.Date(today) - weeks(1),"' ",
+                 "AND `First Allocation Date` BETWEEN '", as.Date(today) - months(4), "' AND '", as.Date(today) - weeks(1),"' ",
                  "AND `Lead Date` <> '", today,"' ",
                  "AND `UW Status` IS NULL AND `QA Status` IS NULL ",
                  "AND `ZwingMaster` <> 'Douglas Gwanyanya' AND `ZwingMaster` <> 'Eric Tagariva'",
