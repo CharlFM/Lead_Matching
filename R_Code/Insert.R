@@ -16,6 +16,15 @@ LeadsGoingIn <- LeadsGoingIn %>% arrange(desc(Pred))
 del <- plyr::colwise(function(x) str_replace_all(x, "'", ""))
 LeadsGoingIn <- del(LeadsGoingIn)
 
+# change so that the next monday (or today) is the lead date and the "first allocation date
+if (weekdays(date(today)) == "Monday"){monday = today} else {
+  d <-  as.Date(today)
+  future.days <- seq(d-1,d+3,by='day')
+  monday <- future.days[weekdays(prev.days)=='Monday']
+}
+
+
+
 # Insert
 for (i in 1:nrow(LeadsGoingIn)) {
   
@@ -30,8 +39,8 @@ for (i in 1:nrow(LeadsGoingIn)) {
                LeadsGoingIn$MODEL[i], LeadsGoingIn$FIRSTREGISTRATIONYEAR[i], LeadsGoingIn$VEHICLEUSE[i], 
                LeadsGoingIn$ODOMETERREADING[i], LeadsGoingIn$DOCINSURANCECOMPANYNAME[i], LeadsGoingIn$REGISTRATIONNUMBER[i], 
                "AccessLife", LeadsGoingIn$ZLAGENT[i], "Red1.png", "Allocated", LeadsGoingIn$COMCAT[i], 
-               LeadsGoingIn$BRANCHNAME[i], LeadsGoingIn$AFFINITY[i], LeadsGoingIn$DOCFINANCECOMPANYNAME[i], today, 
-               LeadsGoingIn$TRANSACTIONNUMBER[i], today, LeadsGoingIn$Pred[i], LeadsGoingIn$PRODUCTTYPECATEGORYNAME[i], 
+               LeadsGoingIn$BRANCHNAME[i], LeadsGoingIn$AFFINITY[i], LeadsGoingIn$DOCFINANCECOMPANYNAME[i], monday, 
+               LeadsGoingIn$TRANSACTIONNUMBER[i], monday, LeadsGoingIn$Pred[i], LeadsGoingIn$PRODUCTTYPECATEGORYNAME[i], 
                LeadsGoingIn$CLIENTEMAILADDRESS[i], 
                sep = "', '")
   
