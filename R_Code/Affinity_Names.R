@@ -25,7 +25,8 @@ data <- ManLead_DatOrig
   data$AFFINITY[data$BRANCHNAME == "Ceres Toyota"]                              <- "Ceres"
   data$AFFINITY[data$BRANCHNAME == "Steven Johnson Cars"]                       <- "Steven Johnson"
   data$AFFINITY[data$BRANCHNAME == "Nellas Auto PTY LTD"]                       <- "Mekor(Signio)"
-
+  data$AFFINITY[is.na(data$BRANCHNAME)]                                         <- "Other"
+  
 ManLead_DatOrig <- data
   
 

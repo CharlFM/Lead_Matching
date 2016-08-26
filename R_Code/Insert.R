@@ -20,7 +20,7 @@ LeadsGoingIn <- del(LeadsGoingIn)
 if (weekdays(date(today)) == "Monday"){monday = today} else {
   d <-  as.Date(today)
   future.days <- seq(d-1,d+3,by='day')
-  monday <- future.days[weekdays(prev.days)=='Monday']
+  monday <- future.days[weekdays(future.days)=='Monday']
 }
 
 

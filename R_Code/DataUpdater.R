@@ -23,11 +23,14 @@ repeat {
     curtime <- as.numeric(format(Sys.time(), "%H")) + as.numeric(format(Sys.time(), "%M"))/60
     
     # Do recycling every Wednesday, Thursday and Friday between 5AM and 6AM
-    if (done_today == 0 & ((curday == "Wednesday" & curtime > 5 & curtime < 6) |
-                           (curday == "Thursday" & curtime > 5 & curtime < 6) |
-                           (curday == "Friday" & curtime > 5 & curtime < 6))) {
+     if (done_today == 0 & ((curday == "Wednesday" & curtime > 5 & curtime < 6) |
+                            (curday == "Thursday" & curtime > 5 & curtime < 6) |
+                            (curday == "Friday" & curtime > 5 & curtime < 6))) {
+    
+    # if (done_today == 0 & ((curday == "Thursday" & curtime > 5 & curtime < 6) |
+    #                        (curday == "Friday" & curtime > 5 & curtime < 6))) {
       
-    # if (done_today == 0 & (curday == "Friday" & curtime > 5 & curtime < 6)) {
+    #if (done_today == 0 & (curday == "Friday" & curtime > 5 & curtime < 11)) {
      
       source(paste(Path, "/R_Code/Allocation_Manual_Recycled.R", sep = ""))
 
