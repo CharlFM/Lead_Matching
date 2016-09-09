@@ -263,11 +263,11 @@ if (length(which(Model$var.names == "SALESPERSON")) == 0) {
   rm(DB_Sp)
 }
 
-DB_Bn <- Model$var.levels[which(Model$var.names == "BRANCHNAME")][[1]]
-
-ManLead_Dat$BRANCHNAME[!(ManLead_Dat$BRANCHNAME %in% DB_Bn)] <- "OTHER"
-
-rm(DB_Bn)
+# DB_Bn <- Model$var.levels[which(Model$var.names == "BRANCHNAME")][[1]]
+# 
+# ManLead_Dat$BRANCHNAME[!(ManLead_Dat$BRANCHNAME %in% DB_Bn)] <- "OTHER"
+# 
+# rm(DB_Bn)
 
 
 # Fix time to call
@@ -480,6 +480,11 @@ feature.names <- colnames(ManLead_Dat)
 feature.names <- feature.names[feature.names != response.names]
 feature.names <- feature.names[feature.names != "CLIENTIDNUMBER"]
 
+
+#### CHANGED BRANCHNAME to a factor before hand so that the values were not limited to the factors used by the model.
+ManLead_Dat[["BRANCHNAME"]] <- factor(ManLead_Dat[["BRANCHNAME"]])
+
+
 for (f in feature.names) {
   if (class(ManLead_Dat[[f]]) == "character") {
     levels <- Model$var.levels[which(Model$var.names == f)][[1]]
@@ -514,6 +519,7 @@ ManLead_Dat$WEEKDAY  <- weekdays(as.Date(today))
 
 #########################################################################
 
+
 ManLead_Dat$WEEKEND  <- "Weekday"
 ManLead_Dat$WEEKEND[ManLead_Dat$WEEKDAY == "Saturday" | ManLead_Dat$WEEKDAY == "Sunday"]  <- "Weekend"
 
@@ -545,9 +551,7 @@ ManLead_Dat <- merge(ManLead_Dat, Enrico_data, by.x = "LEADPICKUPDATE", by.y = "
 ManLead_Dat$PUBHOLIDAY[is.na(ManLead_Dat$PUBHOLIDAY)] <- "Normal_Day"
 
 rm(Enrico_data)
-
 #########################################################################
-
 ManLead_Dat$ZLAGENT <- ""
 
 names(ManLead_Dat)[!(names(ManLead_Dat) %in% Model$var.names)]
