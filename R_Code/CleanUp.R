@@ -334,14 +334,18 @@ All_lead_Data <- All_lead_Data[!(All_lead_Data$CLIENTCATEGORY == "Commercial" & 
 
 rm(IDNums)
 
-
-
-
-
-
-
-
-
+Final_Date_Data <- subset(All_lead_Data, select= c(CLIENTIDNUMBER, CLIENTPOSTALADDRESS1, CLIENTPOSTALADDRESS2, CLIENTPOSTALADDRESSSUBURB, CLIENTPOSTALADDRESSCITY, CLIENTPOSTALADDRESSPROVINCE,CLIENTPOSTALADDRESSPOSTALCODE))
+Address1 <- Final_Date_Data$CLIENTPOSTALADDRESS1
+Address2 <- Final_Date_Data$CLIENTPOSTALADDRESS2
+Address2[Final_Date_Data$CLIENTPOSTALADDRESS2 == Final_Date_Data$CLIENTPOSTALADDRESSSUBURB | Final_Date_Data$CLIENTPOSTALADDRESS2 == ""] <- NA
+Address2[!is.na(Address2)] <- paste(",",Address2[!is.na(Address2)])
+Address2[is.na(Address2)] <- ""
+Address1 <- paste0(Address1, Address2)
+Final_Date_Data$CLIENTPOSTALADDRESS1 <- Address1
+Final_Date_Data <- subset(Final_Date_Data, select = -c(CLIENTPOSTALADDRESS2))
+rm(Address1, Address2)
+colnames(Final_Date_Data) <- c("CLIENTIDNUMBER", "CLIENTPOSTALADDRESS1", "CLIENTPOSTALADDRESS2", "CLIENTPOSTALADDRESS3", "CLIENTPOSTALADDRESS4", "CLIENTPOSTALADDRESSPOSTALCODE")
+Final_Date_Data$CLIENTPOSTALADDRESSPOSTALCODE <- str_pad(Final_Date_Data$CLIENTPOSTALADDRESSPOSTALCODE, width = 4, side = "left", pad = "0") 
 
 
 

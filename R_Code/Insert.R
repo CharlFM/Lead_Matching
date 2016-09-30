@@ -2,9 +2,14 @@
 source(paste(Path, "/R_Code/Affinity_Names.R", sep=""))
 
 
+
 # Insert to DB ---------------------------------------------------------------
 LeadsGoingIn <- merge(ManLead_DatOrig, LeadOut, 
                          by.x = "ID", by.y = "ID", all.y = TRUE) 
+
+# Clean Postal Addresses
+LeadsGoingIn <- subset(LeadsGoingIn, select = -c(CLIENTPOSTALADDRESS1, CLIENTPOSTALADDRESS2, CLIENTPOSTALADDRESS3,CLIENTPOSTALADDRESS4,CLIENTPOSTALADDRESSPOSTALCODE))
+LeadsGoingIn <- merge(LeadsGoingIn, Final_Date_Data, by.x = "CLIENTIDNUMBER", by.y = "CLIENTIDNUMBER", all.x = TRUE)
 
 d_time <- gsub(" ", "_", Sys.time())
 d_time <- gsub("-", "_", d_time)

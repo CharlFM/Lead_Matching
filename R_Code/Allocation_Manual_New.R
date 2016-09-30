@@ -640,7 +640,7 @@ d_time <- gsub(":", "_", d_time)
 write.csv(ManLead_Dat2, paste(Path, "/Output/New/Results_", d_time, ".csv", sep = ""))
 
 # # Insert to DB ---------------------------------------------------------------
-# source(paste(Path, "/R_Code/Insert.R", sep = ""))
+source(paste(Path, "/R_Code/Insert.R", sep = ""))
 
 
 

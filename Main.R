@@ -36,9 +36,6 @@ source(paste(Path, "/R_Code/Allocation_Manual_New.R", sep = ""))
 # Check Affinity names
 source(paste(Path, "/R_Code/Affinity_Names.R", sep=""))
 
-# Insert to DB ---------------------------------------------------------------
-source(paste(Path, "/R_Code/Insert.R", sep = ""))
-
 # Run from here (This should be run continuously)
 source(paste(Path, "/R_Code/DataUpdater.R", sep = ""))
 
