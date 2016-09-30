@@ -1,3 +1,7 @@
+# Check Affinity names
+source(paste(Path, "/R_Code/Affinity_Names.R", sep=""))
+
+
 # Insert to DB ---------------------------------------------------------------
 LeadsGoingIn <- merge(ManLead_DatOrig, LeadOut, 
                          by.x = "ID", by.y = "ID", all.y = TRUE) 
@@ -57,11 +61,12 @@ for (i in 1:nrow(LeadsGoingIn)) {
                        "`retrenchment_allowed`, `E-Mail Address`) ",
                        "VALUES(", vals, ")",
                        sep = "")
-  
+
+
   dbSendQuery(mydb, insertQuery)
   
-  # if (i == 1) {
-  #   AllQueries <- insertQuery
+  #if (i == 1) {
+  # AllQueries <- insertQuery
   # } else {
   #   AllQueries <- paste(AllQueries, insertQuery, sep = ";")
   # }
