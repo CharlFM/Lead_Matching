@@ -334,18 +334,36 @@ All_lead_Data <- All_lead_Data[!(All_lead_Data$CLIENTCATEGORY == "Commercial" & 
 
 rm(IDNums)
 
-Final_Date_Data <- subset(All_lead_Data, select= c(CLIENTIDNUMBER, CLIENTPOSTALADDRESS1, CLIENTPOSTALADDRESS2, CLIENTPOSTALADDRESSSUBURB, CLIENTPOSTALADDRESSCITY, CLIENTPOSTALADDRESSPROVINCE,CLIENTPOSTALADDRESSPOSTALCODE))
-Address1 <- Final_Date_Data$CLIENTPOSTALADDRESS1
-Address2 <- Final_Date_Data$CLIENTPOSTALADDRESS2
-Address2[Final_Date_Data$CLIENTPOSTALADDRESS2 == Final_Date_Data$CLIENTPOSTALADDRESSSUBURB | Final_Date_Data$CLIENTPOSTALADDRESS2 == ""] <- NA
-Address2[!is.na(Address2)] <- paste(",",Address2[!is.na(Address2)])
+# Create a final address data frame to use as the final address data.
+Final_Address_Data <- subset(All_lead_Data, select= c(CLIENTIDNUMBER, CLIENTPOSTALADDRESS1, CLIENTPOSTALADDRESS2, CLIENTPOSTALADDRESSSUBURB, CLIENTPOSTALADDRESSCITY, CLIENTPOSTALADDRESSPROVINCE,CLIENTPOSTALADDRESSPOSTALCODE))
+Address1 <- Final_Address_Data$CLIENTPOSTALADDRESS1
+Address2 <- Final_Address_Data$CLIENTPOSTALADDRESS2
+Address2[Final_Address_Data$CLIENTPOSTALADDRESS2 == Final_Address_Data$CLIENTPOSTALADDRESSSUBURB | Final_Address_Data$CLIENTPOSTALADDRESS2 == ""] <- NA
+Address2[!is.na(Address2)] <- paste(" ",Address2[!is.na(Address2)])
 Address2[is.na(Address2)] <- ""
 Address1 <- paste0(Address1, Address2)
-Final_Date_Data$CLIENTPOSTALADDRESS1 <- Address1
-Final_Date_Data <- subset(Final_Date_Data, select = -c(CLIENTPOSTALADDRESS2))
+Address1 <- gsub(" Ave ", " Avenue ", Address1)
+Address1[str_sub(Address1, start = -3) == "Ave"] <- paste0(substr(Address1[str_sub(Address1, start = -3) == "Ave"], 1, nchar(Address1[str_sub(Address1, start = -3) == "Ave"])-3), "Avenue")
+Address1 <- gsub(" Str ", " Street ", Address1)
+Address1[str_sub(Address1, start = -3) == "Str"] <- paste0(substr(Address1[str_sub(Address1, start = -3) == "Str"], 1, nchar(Address1[str_sub(Address1, start = -3) == "Str"])-3), "Street")
+Address1 <- gsub(" Rd ", " Road ", Address1)
+Address1[str_sub(Address1, start = -3) == "Rd"] <- paste0(substr(Address1[str_sub(Address1, start = -3) == "Rd"], 1, nchar(Address1[str_sub(Address1, start = -3) == "Rd"])-3), "Road")
+Address1 <- gsub(" Cnr ", " Corner ", Address1)
+Address1[str_sub(Address1, start = -3) == "Cnr"] <- paste0(substr(Address1[str_sub(Address1, start = -3) == "Cnr"], 1, nchar(Address1[str_sub(Address1, start = -3) == "Cnr"])-3), "Corner")
+Final_Address_Data$CLIENTPOSTALADDRESS1 <- Address1
+Final_Address_Data <- subset(Final_Address_Data, select = -c(CLIENTPOSTALADDRESS2))
 rm(Address1, Address2)
-colnames(Final_Date_Data) <- c("CLIENTIDNUMBER", "CLIENTPOSTALADDRESS1", "CLIENTPOSTALADDRESS2", "CLIENTPOSTALADDRESS3", "CLIENTPOSTALADDRESS4", "CLIENTPOSTALADDRESSPOSTALCODE")
-Final_Date_Data$CLIENTPOSTALADDRESSPOSTALCODE <- str_pad(Final_Date_Data$CLIENTPOSTALADDRESSPOSTALCODE, width = 4, side = "left", pad = "0") 
+Final_Address_Data$CLIENTPOSTALADDRESSSUBURB[Final_Address_Data$CLIENTPOSTALADDRESSSUBURB == Final_Address_Data$CLIENTPOSTALADDRESSCITY] <- NA
+colnames(Final_Address_Data) <- c("CLIENTIDNUMBER", "CLIENTPOSTALADDRESS1", "CLIENTPOSTALADDRESS2", "CLIENTPOSTALADDRESS3", "CLIENTPOSTALADDRESS4", "CLIENTPOSTALADDRESSPOSTALCODE")
+
+province <- Final_Address_Data
+province$order <- 1:nrow(province)
+province <- merge(province, City_Post_Data, by.x = "CLIENTPOSTALADDRESSPOSTALCODE", by.y = "POSTALCODE", all.x = TRUE)
+province <- province[order(province$order),]
+province <- province$NICEPROVINCE
+Final_Address_Data$CLIENTPOSTALADDRESS4 <- province
+
+Final_Address_Data$CLIENTPOSTALADDRESSPOSTALCODE <- str_pad(Final_Address_Data$CLIENTPOSTALADDRESSPOSTALCODE, width = 4, side = "left", pad = "0") 
 
 
 

@@ -9,7 +9,7 @@ LeadsGoingIn <- merge(ManLead_DatOrig, LeadOut,
 
 # Clean Postal Addresses
 LeadsGoingIn <- subset(LeadsGoingIn, select = -c(CLIENTPOSTALADDRESS1, CLIENTPOSTALADDRESS2, CLIENTPOSTALADDRESS3,CLIENTPOSTALADDRESS4,CLIENTPOSTALADDRESSPOSTALCODE))
-LeadsGoingIn <- merge(LeadsGoingIn, Final_Date_Data, by.x = "CLIENTIDNUMBER", by.y = "CLIENTIDNUMBER", all.x = TRUE)
+LeadsGoingIn <- merge(LeadsGoingIn, Final_Address_Data, by.x = "CLIENTIDNUMBER", by.y = "CLIENTIDNUMBER", all.x = TRUE)
 
 d_time <- gsub(" ", "_", Sys.time())
 d_time <- gsub("-", "_", d_time)
@@ -68,7 +68,7 @@ for (i in 1:nrow(LeadsGoingIn)) {
                        sep = "")
 
 
-  dbSendQuery(mydb, insertQuery)
+#  dbSendQuery(mydb, insertQuery)
   
   #if (i == 1) {
   # AllQueries <- insertQuery
